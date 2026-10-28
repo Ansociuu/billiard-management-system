@@ -1,4 +1,4 @@
-﻿<Application x:Class="billiard_management_system.App"
+<Application x:Class="billiard_management_system.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:billiard_management_system"

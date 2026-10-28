@@ -1,0 +1,6 @@
+<connectionStrings>
+    <!-- Mẫu cấu hình kết nối database. Hãy sao chép thành connections.config và điền thông tin thật -->
+    <add name="BilliardDb" 
+         connectionString="Server=YOUR_HOST;Port=YOUR_PORT;Database=defaultdb;User ID=YOUR_USER;Password=YOUR_PASSWORD;SslMode=Required;CharSet=utf8mb4;" 
+         providerName="MySqlConnector" />
+</connectionStrings>

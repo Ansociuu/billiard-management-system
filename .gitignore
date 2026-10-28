@@ -1,4 +1,4 @@
-﻿## Build results
+## Build results
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -89,3 +89,7 @@ _ReSharper*/
 *.pidb
 *.log
 *.scc
+
+# Database connection credentials (keep example file in repo)
+connections.config
+**/connections.config

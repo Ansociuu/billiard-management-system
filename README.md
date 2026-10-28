@@ -1,4 +1,4 @@
-﻿# 🎱 Billiard Management System (Phần mềm Quản lý Quán Billiard)
+# 🎱 Billiard Management System (Phần mềm Quản lý Quán Billiard)
 
 > Hệ thống phần mềm quản lý quán Billiard chuyên nghiệp, tối ưu cho hộ kinh doanh cá thể và câu lạc bộ Billiard vừa & nhỏ.
 
@@ -45,7 +45,18 @@ Dự án được xây dựng nhằm giải quyết bài toán vận hành hàng
 - **Giao diện & Nền tảng:** WPF (.NET Framework 4.7.2, C#)
 - **Kiến trúc:** MVVM (Model - View - ViewModel)
 - **UI Toolkit:** XAML, Material Design / ModernWpf
-- **Cơ sở dữ liệu:** SQLite / SQL Server LocalDB
+- **Cơ sở dữ liệu:** MySQL 8.0+ (Lưu trữ Cloud trên Aiven Managed Database, SSL Mode Required)
+- **Data Access:** ADO.NET với thư viện high-performance `MySqlConnector`
+
+---
+
+## 🗄️ Cơ sở Dữ liệu & Tài liệu (Database & Documentation)
+
+- **Chi tiết thiết kế 17 bảng:** Xem toàn bộ sơ đồ ERD và Data Dictionary tại [docs/database.md](docs/database.md).
+- **Mã nguồn khởi tạo DB:** File DDL schema và seed data tại [database/schema.sql](database/schema.sql).
+- **Tài khoản đăng nhập mặc định (Seed Data):**
+  - **Quản trị viên (Admin):** Tài khoản `admin` / Mật khẩu `Admin@123` (Được cấp toàn bộ 8 quyền hệ thống).
+  - **Nhân viên thu ngân (Staff):** Tài khoản `staff01` / Mật khẩu `Admin@123`.
 
 ---
 
@@ -56,7 +67,19 @@ Dự án được xây dựng nhằm giải quyết bài toán vận hành hàng
    - Visual Studio 2022 (hoặc 2019) có cài đặt workload **.NET Desktop Development**.
    - .NET Framework 4.7.2 trở lên.
 
-2. **Khởi chạy dự án:**
+2. **Cấu hình kết nối cơ sở dữ liệu (Bảo mật theo chuẩn .NET):**
+   - Dự án áp dụng cơ chế tách riêng chuỗi kết nối vào file [billiard-management-system/connections.config](file:///d:/billiard-management-system/billiard-management-system/connections.config). File này đã được thêm vào `.gitignore` để không bao giờ bị lộ mật khẩu lên GitHub.
+   - File [billiard-management-system/App.config](file:///d:/billiard-management-system/billiard-management-system/App.config) chỉ chứa thẻ nạp tham chiếu: `<connectionStrings configSource="connections.config" />`.
+   - Khi clone dự án sang máy mới, chỉ cần copy file `connections.config.example` thành `connections.config` và điền thông tin đăng nhập:
+     ```xml
+     <connectionStrings>
+         <add name="BilliardDb" 
+              connectionString="Server=YOUR_HOST;Port=YOUR_PORT;Database=defaultdb;User ID=YOUR_USER;Password=YOUR_PASSWORD;SslMode=Required;CharSet=utf8mb4;" 
+              providerName="MySqlConnector" />
+     </connectionStrings>
+     ```
+
+3. **Khởi chạy dự án:**
    ```bash
    # Clone repository về máy
    git clone https://github.com/<tai-khoan>/billiard-management-system.git

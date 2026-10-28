@@ -1,0 +1,13 @@
+# Tự động chuẩn hóa dấu xuống dòng cho mọi file text
+* text=auto
+
+# Quy định rõ CRLF cho các file thuộc hệ sinh thái Windows / .NET
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.config text eol=crlf
+*.csproj text eol=crlf
+*.sln text eol=crlf
+*.slnx text eol=crlf
+*.md text eol=crlf
+*.sql text eol=crlf
+*.py text eol=lf
