@@ -115,7 +115,9 @@
     <Compile Include="Models\SessionProduct.cs" />
     <Compile Include="Models\Invoice.cs" />
     <Compile Include="Models\InvoiceDetail.cs" />
+    <Compile Include="Helpers\UserPreferences.cs" />
     <Compile Include="Helpers\UserSession.cs" />
+    <Compile Include="Services\AuditLogService.cs" />
     <Compile Include="Helpers\PasswordBoxHelper.cs" />
     <Compile Include="Helpers\Converters\Converters.cs" />
     <Compile Include="Services\AuthService.cs" />

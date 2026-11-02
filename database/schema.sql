@@ -316,10 +316,10 @@ INSERT INTO RolePermissions (RoleId, PermissionId) VALUES
 (2, 1), (2, 2), (2, 3), (2, 5);
 
 -- 4. Initial Users (Mật khẩu mặc định: 'Admin@123' băm bằng BCrypt)
--- Hash BCrypt cho 'Admin@123': $2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+-- Hash BCrypt cho 'Admin@123': $2a$11$Dbk60mq8s9q5wnMsMq3vuOxHLYa2lxNtfQ3DDbZjGi5KDH8xqxh6i
 INSERT INTO Users (UserId, RoleId, Username, PasswordHash, FullName, Phone, IsActive) VALUES
-(1, 1, 'admin', '$2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Quản Trị Viên (Admin)', '0901234567', TRUE),
-(2, 2, 'staff01', '$2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Nhân Viên Ca 1', '0908765432', TRUE);
+(1, 1, 'admin', '$2a$11$Dbk60mq8s9q5wnMsMq3vuOxHLYa2lxNtfQ3DDbZjGi5KDH8xqxh6i', 'Quản Trị Viên (Admin)', '0901234567', TRUE),
+(2, 2, 'staff01', '$2a$11$Dbk60mq8s9q5wnMsMq3vuOxHLYa2lxNtfQ3DDbZjGi5KDH8xqxh6i', 'Nhân Viên Ca 1', '0908765432', TRUE);
 
 -- 5. TableTypes
 INSERT INTO TableTypes (TableTypeId, TypeName, Description, IsActive) VALUES

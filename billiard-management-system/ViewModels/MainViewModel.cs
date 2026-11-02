@@ -1,16 +1,20 @@
 using System;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using billiard_management_system.Core;
 using billiard_management_system.Helpers;
+using billiard_management_system.Services;
 
 namespace billiard_management_system.ViewModels
 {
     public class MainViewModel : BaseViewModel
     {
+        private readonly IAuthService _authService;
         private BaseViewModel _currentViewModel;
         private string _activeMenu = "Tables";
         private string _currentTimeString;
+        private string _sessionDurationString = "00:00:00";
         private string _notificationMessage;
         private string _notificationType = "Info"; // "Info", "Success", "Error"
         private bool _isNotificationVisible;
@@ -19,8 +23,9 @@ namespace billiard_management_system.ViewModels
 
         public event Action LogoutRequested;
 
-        public MainViewModel()
+        public MainViewModel(IAuthService authService = null)
         {
+            _authService = authService ?? new AuthService();
             Title = "Hệ Thống Quản Lý Quán Billiard Chuyên Nghiệp";
 
             // Khởi tạo các ViewModel con
@@ -78,7 +83,7 @@ namespace billiard_management_system.ViewModels
             DismissNotificationCommand = new RelayCommand(() => IsNotificationVisible = false);
             LogoutCommand = new RelayCommand(ExecuteLogout);
 
-            // Đồng hồ thời gian thực
+            // Đồng hồ thời gian thực & theo dõi thời lượng phiên làm việc
             UpdateTime();
             _clockTimer = new DispatcherTimer
             {
@@ -117,13 +122,21 @@ namespace billiard_management_system.ViewModels
             set => SetProperty(ref _activeMenu, value);
         }
 
+        #region User & Session Info
+
         public string CurrentUserFullName => UserSession.CurrentUser?.FullName ?? "Quản trị viên";
         public string CurrentUserRole => UserSession.CurrentUser?.RoleName ?? "Admin";
+        public string CurrentUsername => UserSession.CurrentUser?.Username ?? string.Empty;
 
-        // Phân quyền hiển thị Menu
-        public bool IsAdmin => UserSession.CurrentUser == null || UserSession.CurrentUser.RoleName == "Admin" || UserSession.CurrentUser.RoleId == 1;
-        public bool CanAccessReports => IsAdmin || UserSession.HasPermission("VIEW_REPORT");
-        public bool CanAccessStaff => IsAdmin || UserSession.HasPermission("MANAGE_USER");
+        public string LoginTimeFormatted => UserSession.LoginTime != default
+            ? UserSession.LoginTime.ToString("HH:mm - dd/MM/yyyy")
+            : "Chưa xác định";
+
+        public string SessionDurationString
+        {
+            get => _sessionDurationString;
+            set => SetProperty(ref _sessionDurationString, value);
+        }
 
         public string CurrentTimeString
         {
@@ -131,7 +144,21 @@ namespace billiard_management_system.ViewModels
             set => SetProperty(ref _currentTimeString, value);
         }
 
-        // Quản lý Notification Bar
+        #endregion
+
+        #region Role-Based Access Control (RBAC) Permissions
+
+        // Phân quyền hiển thị Menu theo RBAC
+        public bool IsAdmin => UserSession.IsAdmin;
+        public bool CanAccessReports => UserSession.HasPermission("REPORT_VIEW");
+        public bool CanAccessStaff => UserSession.HasPermission("USER_MANAGE");
+        public bool CanAccessProducts => UserSession.HasPermission("PRODUCT_MANAGE");
+        public bool CanAccessInvoices => UserSession.HasPermission("INVOICE_PAY");
+
+        #endregion
+
+        #region Notifications
+
         public string NotificationMessage
         {
             get => _notificationMessage;
@@ -150,14 +177,6 @@ namespace billiard_management_system.ViewModels
             set => SetProperty(ref _isNotificationVisible, value);
         }
 
-        public ICommand NavigateToTablesCommand { get; }
-        public ICommand NavigateToProductsCommand { get; }
-        public ICommand NavigateToInvoicesCommand { get; }
-        public ICommand NavigateToReportsCommand { get; }
-        public ICommand NavigateToStaffCommand { get; }
-        public ICommand DismissNotificationCommand { get; }
-        public ICommand LogoutCommand { get; }
-
         public void ShowNotification(string message, string type = "Info")
         {
             NotificationMessage = message;
@@ -168,15 +187,48 @@ namespace billiard_management_system.ViewModels
             _notificationTimer.Start();
         }
 
+        #endregion
+
+        #region Commands
+
+        public ICommand NavigateToTablesCommand { get; }
+        public ICommand NavigateToProductsCommand { get; }
+        public ICommand NavigateToInvoicesCommand { get; }
+        public ICommand NavigateToReportsCommand { get; }
+        public ICommand NavigateToStaffCommand { get; }
+        public ICommand DismissNotificationCommand { get; }
+        public ICommand LogoutCommand { get; }
+
+        #endregion
+
         private void UpdateTime()
         {
             CurrentTimeString = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+
+            if (UserSession.IsLoggedIn)
+            {
+                var duration = UserSession.SessionDuration;
+                SessionDurationString = string.Format("{0:00}:{1:00}:{2:00}", (int)duration.TotalHours, duration.Minutes, duration.Seconds);
+            }
         }
 
-        private void ExecuteLogout()
+        private async void ExecuteLogout()
         {
-            UserSession.ClearSession();
-            LogoutRequested?.Invoke();
+            var result = MessageBox.Show(
+                $"Bạn có chắc chắn muốn đăng xuất khỏi tài khoản [{CurrentUserFullName}] không?",
+                "Xác nhận đăng xuất",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _clockTimer.Stop();
+
+                // Ghi vết đăng xuất vào AuditLogs và giải phóng phiên
+                await _authService.LogoutAsync(UserSession.CurrentUser?.UserId);
+
+                LogoutRequested?.Invoke();
+            }
         }
     }
 }
