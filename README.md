@@ -21,9 +21,9 @@ Dự án được xây dựng nhằm giải quyết bài toán vận hành hàng
   - Bấm giờ chính xác theo từng phút.
   - Cấu hình bảng giá linh hoạt theo loại bàn, khung giờ vàng, ngày cuối tuần / ngày lễ.
 
-- **🍹 Quản lý Dịch vụ & F&B:**
+- **🍹 Quản lý Dịch vụ:**
   - Gọi đồ uống, đồ ăn, thuốc lá, thuê phụ kiện tính trực tiếp vào hóa đơn bàn.
-  - Quản lý danh mục hàng hóa và tồn kho F&B.
+  - Quản lý danh mục dịch vụ và bảng giá sản phẩm phục vụ.
 
 - **💳 Thanh toán & Hóa đơn:**
   - Tự động cộng tiền giờ + tiền dịch vụ.

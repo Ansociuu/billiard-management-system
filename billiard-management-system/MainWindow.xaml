@@ -57,7 +57,7 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Mục 2: Thực đơn & F&B -->
+                    <!-- Mục 2: Dịch vụ -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             Command="{Binding NavigateToProductsCommand}"
                             Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Products}"
@@ -65,7 +65,7 @@
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FoodForkDrink" Width="20" Height="20" Foreground="#FB923C" Margin="0,0,14,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Dịch vụ &amp; F&amp;B" FontSize="14" VerticalAlignment="Center" />
+                            <TextBlock Text="Dịch vụ" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
