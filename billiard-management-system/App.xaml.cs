@@ -1,8 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
+using billiard_management_system.ViewModels;
+using billiard_management_system.Views;
 
 namespace billiard_management_system
 {
@@ -13,6 +14,8 @@ namespace billiard_management_system
     {
         protected override async void OnStartup(StartupEventArgs e)
         {
+            base.OnStartup(e);
+
             if (e.Args.Contains("--test-db"))
             {
                 var result = await DatabaseHelper.TestConnectionAsync();
@@ -22,7 +25,32 @@ namespace billiard_management_system
                 return;
             }
 
-            base.OnStartup(e);
+            ShowLogin();
+        }
+
+        private void ShowLogin()
+        {
+            var loginWindow = new LoginWindow();
+            var loginVm = new LoginViewModel();
+
+            loginVm.LoginSucceeded += () =>
+            {
+                var mainWindow = new MainWindow();
+                var mainVm = new MainViewModel();
+
+                mainVm.LogoutRequested += () =>
+                {
+                    mainWindow.Close();
+                    ShowLogin();
+                };
+
+                mainWindow.DataContext = mainVm;
+                mainWindow.Show();
+                loginWindow.Close();
+            };
+
+            loginWindow.DataContext = loginVm;
+            loginWindow.Show();
         }
     }
 }

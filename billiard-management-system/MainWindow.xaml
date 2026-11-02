@@ -3,10 +3,155 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:billiard_management_system"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Hệ Thống Quản Lý Quán Billiard Chuyên Nghiệp" 
+        Height="780" Width="1280"
+        MinHeight="650" MinWidth="1000"
+        WindowStartupLocation="CenterScreen"
+        Background="#0F172A">
+
     <Grid>
-        
+        <Grid.ColumnDefinitions>
+            <!-- THANH ĐIỀU HƯỚNG BÊN TRÁI (SIDEBAR) -->
+            <ColumnDefinition Width="230" />
+            <!-- VÙNG NỘI DUNG CHÍNH (CONTENT AREA) -->
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- SIDEBAR NAVIGATION -->
+        <Border Grid.Column="0" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- Logo & Thương hiệu -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Danh sách Menu chính -->
+                    <RowDefinition Height="*" />
+                    <!-- Thông tin tài khoản & Đăng xuất -->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- LOGO & BRAND -->
+                <StackPanel Grid.Row="0" Margin="20,24,20,28" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="40" Height="40" Background="#00897B" CornerRadius="20" Margin="0,0,12,0">
+                        <materialDesign:PackIcon Kind="Billiards" Width="24" Height="24" Foreground="White" 
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="BILLIARD PRO" FontSize="16" FontWeight="ExtraBold" Foreground="White" />
+                        <TextBlock Text="Management v1.0" FontSize="11" Foreground="#94A3B8" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- MENU NAVIGATION BUTTONS -->
+                <StackPanel Grid.Row="1" Margin="12,0">
+                    <!-- Mục 1: Sơ đồ bàn -->
+                    <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Command="{Binding NavigateToTablesCommand}"
+                            Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
+                            Foreground="White" Background="#1E293B">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ViewDashboardOutline" Width="20" Height="20" Foreground="#26A69A" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Sơ đồ Bàn chơi" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Mục 2: Thực đơn & F&B -->
+                    <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
+                            Foreground="#94A3B8">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FoodForkDrink" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Dịch vụ &amp; F&amp;B" FontSize="14" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Mục 3: Hóa đơn -->
+                    <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
+                            Foreground="#94A3B8">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ReceiptTextOutline" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Hóa đơn &amp; Thu ngân" FontSize="14" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Mục 4: Báo cáo -->
+                    <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
+                            Foreground="#94A3B8">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ChartBar" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Báo cáo Doanh thu" FontSize="14" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Mục 5: Quản trị -->
+                    <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
+                            Foreground="#94A3B8">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AccountGroupOutline" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Quản lý Nhân viên" FontSize="14" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- THÔNG TIN NGƯỜI DÙNG & ĐĂNG XUẤT (FOOTER SIDEBAR) -->
+                <Border Grid.Row="2" Background="#1E293B" Padding="14,16" Margin="12,0,12,16" CornerRadius="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CurrentUserFullName}" FontWeight="Bold" Foreground="White" FontSize="13" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding CurrentUserRole}" Foreground="#26A69A" FontSize="11" FontWeight="Medium" />
+                        </StackPanel>
+
+                        <!-- Nút Đăng xuất -->
+                        <Button Grid.Column="1" Command="{Binding LogoutCommand}"
+                                Style="{StaticResource MaterialDesignIconButton}" 
+                                Width="34" Height="34" Padding="0" Foreground="#F87171" ToolTip="Đăng xuất">
+                            <materialDesign:PackIcon Kind="LogoutVariant" Width="20" Height="20" />
+                        </Button>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- RIGHT MAIN AREA -->
+        <Grid Grid.Column="1" Background="#F1F5F9">
+            <Grid.RowDefinitions>
+                <!-- TOP HEADER -->
+                <RowDefinition Height="64" />
+                <!-- VIEW CONTENT PRESENTATION -->
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- TOP HEADER -->
+            <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="24,0">
+                <Grid VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Xin chào, " FontSize="16" Foreground="#64748B" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding CurrentUserFullName}" FontSize="16" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Đồng hồ thời gian thực & Ca làm việc -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="14,6">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ClockOutline" Width="16" Height="16" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding CurrentTimeString}" FontSize="13" FontWeight="SemiBold" Foreground="#334155" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- NỘI DUNG VIEW HIỆN TẠI (DATA TEMPLATES TỰ ĐỘNG MAP) -->
+            <ContentControl Grid.Row="1" Content="{Binding CurrentViewModel}" />
+        </Grid>
     </Grid>
 </Window>
