@@ -23,6 +23,7 @@ namespace billiard_management_system
         public MainWindow()
         {
             InitializeComponent();
+            DataContext = Services.ServiceLocator.Resolve<ViewModels.MainViewModel>();
         }
     }
 }

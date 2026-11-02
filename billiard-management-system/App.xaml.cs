@@ -22,7 +22,24 @@ namespace billiard_management_system
                 return;
             }
 
+            // Cấu hình Dependency Injection / ServiceLocator
+            ConfigureServices();
+
             base.OnStartup(e);
+        }
+
+        private void ConfigureServices()
+        {
+            var navService = new Services.NavigationService();
+            var dialogService = new Services.DialogService();
+            var authService = new Services.AuthenticationService();
+
+            Services.ServiceLocator.RegisterSingleton<Services.INavigationService, Services.NavigationService>(navService);
+            Services.ServiceLocator.RegisterSingleton<Services.IDialogService, Services.DialogService>(dialogService);
+            Services.ServiceLocator.RegisterSingleton<Services.IAuthenticationService, Services.AuthenticationService>(authService);
+
+            Services.ServiceLocator.RegisterTransient<ViewModels.MainViewModel>(() => 
+                new ViewModels.MainViewModel(navService, authService));
         }
     }
 }
