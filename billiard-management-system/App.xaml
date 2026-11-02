@@ -17,11 +17,16 @@
             <converters:TableStatusToBrushConverter x:Key="TableStatusToBrushConverter" />
             <converters:CurrencyConverter x:Key="CurrencyConverter" />
             <converters:DurationConverter x:Key="DurationConverter" />
+            <converters:MenuActiveConverter x:Key="MenuActiveConverter" />
+            <converters:NotificationTypeToBrushConverter x:Key="NotificationTypeToBrushConverter" />
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
             <!-- DATA TEMPLATES: TỰ ĐỘNG BIND VIEW THEO VIEWMODEL -->
             <DataTemplate DataType="{x:Type vm:TableManagementViewModel}">
                 <views:TableManagementView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:MenuPlaceholderViewModel}">
+                <views:MenuPlaceholderView />
             </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>

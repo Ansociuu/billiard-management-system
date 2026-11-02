@@ -48,8 +48,9 @@
                     <!-- Mục 1: Sơ đồ bàn -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             Command="{Binding NavigateToTablesCommand}"
+                            Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Tables}"
                             Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
-                            Foreground="White" Background="#1E293B">
+                            Foreground="White">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ViewDashboardOutline" Width="20" Height="20" Foreground="#26A69A" Margin="0,0,14,0" VerticalAlignment="Center" />
                             <TextBlock Text="Sơ đồ Bàn chơi" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -58,40 +59,50 @@
 
                     <!-- Mục 2: Thực đơn & F&B -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Command="{Binding NavigateToProductsCommand}"
+                            Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Products}"
                             Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
-                            Foreground="#94A3B8">
+                            Foreground="White">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="FoodForkDrink" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="FoodForkDrink" Width="20" Height="20" Foreground="#FB923C" Margin="0,0,14,0" VerticalAlignment="Center" />
                             <TextBlock Text="Dịch vụ &amp; F&amp;B" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
                     <!-- Mục 3: Hóa đơn -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Command="{Binding NavigateToInvoicesCommand}"
+                            Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Invoices}"
                             Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
-                            Foreground="#94A3B8">
+                            Foreground="White">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ReceiptTextOutline" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="ReceiptTextOutline" Width="20" Height="20" Foreground="#38BDF8" Margin="0,0,14,0" VerticalAlignment="Center" />
                             <TextBlock Text="Hóa đơn &amp; Thu ngân" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <!-- Mục 4: Báo cáo -->
+                    <!-- Mục 4: Báo cáo (Chỉ hiển thị cho người có quyền xem báo cáo) -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Command="{Binding NavigateToReportsCommand}"
+                            Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Reports}"
+                            Visibility="{Binding CanAccessReports, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
-                            Foreground="#94A3B8">
+                            Foreground="White">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ChartBar" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="ChartBar" Width="20" Height="20" Foreground="#A78BFA" Margin="0,0,14,0" VerticalAlignment="Center" />
                             <TextBlock Text="Báo cáo Doanh thu" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <!-- Mục 5: Quản trị -->
+                    <!-- Mục 5: Quản trị Nhân viên (Chỉ Admin) -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
+                            Command="{Binding NavigateToStaffCommand}"
+                            Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Staff}"
+                            Visibility="{Binding CanAccessStaff, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
-                            Foreground="#94A3B8">
+                            Foreground="White">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="AccountGroupOutline" Width="20" Height="20" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="AccountGroupOutline" Width="20" Height="20" Foreground="#F472B6" Margin="0,0,14,0" VerticalAlignment="Center" />
                             <TextBlock Text="Quản lý Nhân viên" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -150,8 +161,42 @@
                 </Grid>
             </Border>
 
-            <!-- NỘI DUNG VIEW HIỆN TẠI (DATA TEMPLATES TỰ ĐỘNG MAP) -->
-            <ContentControl Grid.Row="1" Content="{Binding CurrentViewModel}" />
+            <!-- NỘI DUNG VIEW HIỆN TẠI VÀ NOTIFICATION TOAST -->
+            <Grid Grid.Row="1">
+                <!-- DataTemplates tự động render View theo ViewModel con đang active -->
+                <ContentControl Content="{Binding CurrentViewModel}" />
+
+                <!-- FLOATING NOTIFICATION BANNER (TOAST) -->
+                <Border Visibility="{Binding IsNotificationVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Background="White" CornerRadius="8" Padding="16,12" Margin="24"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        BorderBrush="{Binding NotificationType, Converter={StaticResource NotificationTypeToBrushConverter}}"
+                        BorderThickness="1,1,1,4" MaxWidth="450">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="16" Color="#000000" Opacity="0.12" ShadowDepth="4" />
+                    </Border.Effect>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <materialDesign:PackIcon Grid.Column="0" Kind="InformationOutline" Width="22" Height="22" 
+                                                 Foreground="{Binding NotificationType, Converter={StaticResource NotificationTypeToBrushConverter}}"
+                                                 VerticalAlignment="Center" Margin="0,0,12,0" />
+
+                        <TextBlock Grid.Column="1" Text="{Binding NotificationMessage}" FontSize="13" Foreground="#1E293B" 
+                                   TextWrapping="Wrap" VerticalAlignment="Center" FontWeight="Medium" />
+
+                        <Button Grid.Column="2" Command="{Binding DismissNotificationCommand}"
+                                Style="{StaticResource MaterialDesignIconButton}" Width="28" Height="28" Padding="0" 
+                                Foreground="#94A3B8" Margin="8,0,0,0">
+                            <materialDesign:PackIcon Kind="Close" Width="16" Height="16" />
+                        </Button>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </Grid>
 </Window>
