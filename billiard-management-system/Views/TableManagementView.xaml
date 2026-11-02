@@ -1,0 +1,356 @@
+<UserControl x:Class="billiard_management_system.Views.TableManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:billiard_management_system.Helpers.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1100"
+             Background="#F5F6F8">
+
+    <UserControl.Resources>
+        <converters:TableStatusToBrushConverter x:Key="StatusBrushConverter" />
+        <converters:CurrencyConverter x:Key="CurrencyConverter" />
+        <converters:DurationConverter x:Key="DurationConverter" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+    </UserControl.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <!-- Thanh thống kê & bộ lọc -->
+            <RowDefinition Height="Auto" />
+            <!-- Vùng nội dung chính: Danh sách bàn + Chi tiết bàn -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- TOP BAR: THỐNG KÊ VÀ BỘ LỌC -->
+        <Border Grid.Row="0" Background="White" CornerRadius="8" Padding="16" Margin="0,0,0,16">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.06" ShadowDepth="2" />
+            </Border.Effect>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Filter theo loại bàn & trạng thái -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="🎱 Sơ Đồ Bàn Chơi" FontSize="20" FontWeight="Bold" Foreground="#1E293B" VerticalAlignment="Center" Margin="0,0,24,0" />
+
+                    <!-- Filter pills -->
+                    <RadioButton Content="Tất cả" IsChecked="True" Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                 Command="{Binding FilterTypeCommand}" Margin="0,0,8,0" />
+                    <RadioButton Content="Bàn Pool" Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                 Command="{Binding FilterTypeCommand}" CommandParameter="1" Margin="0,0,8,0" />
+                    <RadioButton Content="Bàn Carom" Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                 Command="{Binding FilterTypeCommand}" CommandParameter="2" Margin="0,0,8,0" />
+                    <RadioButton Content="Bàn 3 Băng" Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                 Command="{Binding FilterTypeCommand}" CommandParameter="3" Margin="0,0,16,0" />
+                </StackPanel>
+
+                <!-- Thống kê nhanh & Nút tải lại -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Chip Bàn Trống -->
+                    <Border Background="#E8F5E9" CornerRadius="16" Padding="12,6" Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="10" Height="10" Fill="#2E7D32" Margin="0,0,6,0" />
+                            <TextBlock Text="Trống: " Foreground="#2E7D32" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding AvailableCount}" Foreground="#2E7D32" FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Chip Đang Chơi -->
+                    <Border Background="#FFEBEE" CornerRadius="16" Padding="12,6" Margin="0,0,16,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="10" Height="10" Fill="#C62828" Margin="0,0,6,0" />
+                            <TextBlock Text="Đang chơi: " Foreground="#C62828" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding OccupiedCount}" Foreground="#C62828" FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Nút Refresh -->
+                    <Button Command="{Binding RefreshCommand}" Style="{StaticResource MaterialDesignOutlinedButton}" 
+                            Height="36" Padding="12,0" ToolTip="Làm mới sơ đồ bàn">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Refresh" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="Làm mới" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- MAIN AREA: LƯỚI BÀN (BÊN TRÁI) + CHI TIẾT & HÓA ĐƠN (BÊN PHẢI) -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <!-- Danh sách bàn -->
+                <ColumnDefinition Width="*" />
+                <!-- Cột chi tiết bàn đang chọn -->
+                <ColumnDefinition Width="380" />
+            </Grid.ColumnDefinitions>
+
+            <!-- DANH SÁCH BÀN CHƠI (CARD GRID) -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
+                <ItemsControl ItemsSource="{Binding FilteredTables}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- Card đại diện cho 1 bàn bida -->
+                            <Border Width="195" Height="185" Margin="0,0,14,14" CornerRadius="10"
+                                    Background="White" Cursor="Hand">
+                                <Border.InputBindings>
+                                    <MouseBinding MouseAction="LeftClick" 
+                                                  Command="{Binding DataContext.SelectTableCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                  CommandParameter="{Binding}" />
+                                </Border.InputBindings>
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderThickness" Value="2" />
+                                        <Setter Property="BorderBrush" Value="#E2E8F0" />
+                                        <Setter Property="Effect">
+                                            <Setter.Value>
+                                                <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="BorderBrush" Value="#00897B" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+
+                                <Grid Margin="12">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Tiêu đề bàn & Badge trạng thái -->
+                                    <Grid Grid.Row="0">
+                                        <TextBlock Text="{Binding TableNumber}" FontSize="22" FontWeight="Bold" Foreground="#0F172A" />
+                                        <Border HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                CornerRadius="12" Padding="8,3"
+                                                Background="{Binding Status, Converter={StaticResource StatusBrushConverter}}">
+                                            <TextBlock Text="{Binding StatusDisplayName}" Foreground="White" FontSize="11" FontWeight="SemiBold" />
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Loại bàn & Đơn giá -->
+                                    <StackPanel Grid.Row="1" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding TypeName}" Foreground="#64748B" FontSize="12" />
+                                        <TextBlock Text="{Binding HourlyRate, Converter={StaticResource CurrencyConverter}, StringFormat='{}{0}/giờ'}" 
+                                                   Foreground="#00897B" FontSize="11" FontWeight="Medium" />
+                                    </StackPanel>
+
+                                    <!-- Nội dung phiên đang chơi (Đồng hồ đếm giờ động) -->
+                                    <StackPanel Grid.Row="2" VerticalAlignment="Center" Margin="0,8,0,0">
+                                        <Border Visibility="{Binding IsOccupied, Converter={StaticResource BoolToVisConverter}}"
+                                                Background="#FEF2F2" CornerRadius="6" Padding="8,6">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                    <materialDesign:PackIcon Kind="ClockOutline" Foreground="#DC2626" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                                    <TextBlock Text="{Binding ElapsedTime, Converter={StaticResource DurationConverter}}" 
+                                                               Foreground="#DC2626" FontSize="15" FontWeight="Bold" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding CurrentSession.StartTime, StringFormat='Vào: {0:HH:mm}'}" 
+                                                           Foreground="#991B1B" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Visibility="{Binding IsAvailable, Converter={StaticResource BoolToVisConverter}}"
+                                                Background="#F0FDF4" CornerRadius="6" Padding="8,10">
+                                            <TextBlock Text="Sẵn sàng đón khách" Foreground="#166534" FontSize="12" FontWeight="Medium" HorizontalAlignment="Center" />
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Nút thao tác nhanh dưới đáy card -->
+                                    <Grid Grid.Row="3" Margin="0,6,0,0">
+                                        <TextBlock Text="Nhấp để xem chi tiết →" Foreground="#94A3B8" FontSize="10" HorizontalAlignment="Right" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- BẢNG ĐIỀU KHIỂN & HÓA ĐƠN CHI TIẾT (BÊN PHẢI) -->
+            <Border Grid.Column="1" Background="White" CornerRadius="10" Padding="16">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="12" Color="#000000" Opacity="0.07" ShadowDepth="2" />
+                </Border.Effect>
+
+                <!-- Khi CHƯA chọn bàn nào -->
+                <Grid Visibility="{Binding HasSelectedTable, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid.RowDefinitions>
+                        <!-- Tiêu đề bàn được chọn -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Bàn trống: Nút mở bàn -->
+                        <!-- Bàn đang chơi: Hóa đơn & gọi món -->
+                        <RowDefinition Height="*" />
+                        <!-- Nút thanh toán hoặc chốt đơn -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- HEADER BÀN ĐANG CHỌN -->
+                    <Border Grid.Row="0" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="0,0,0,12" Margin="0,0,0,12">
+                        <Grid>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Bàn " FontSize="22" FontWeight="Bold" Foreground="#1E293B" />
+                                    <TextBlock Text="{Binding SelectedTable.TableNumber}" FontSize="22" FontWeight="Bold" Foreground="#00897B" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding SelectedTable.TypeName}" Foreground="#64748B" FontSize="13" />
+                            </StackPanel>
+
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="12" Padding="10,4"
+                                    Background="{Binding SelectedTable.Status, Converter={StaticResource StatusBrushConverter}}">
+                                <TextBlock Text="{Binding SelectedTable.StatusDisplayName}" Foreground="White" FontWeight="Bold" FontSize="12" />
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- TRƯỜNG HỢP 1: BÀN TRỐNG (AVAILABLE) -->
+                    <StackPanel Grid.Row="1" VerticalAlignment="Center" 
+                                Visibility="{Binding CanStartSession, Converter={StaticResource BoolToVisConverter}}">
+                        <materialDesign:PackIcon Kind="TableCheck" Width="64" Height="64" Foreground="#2E7D32" HorizontalAlignment="Center" Margin="0,0,0,16" />
+                        <TextBlock Text="Bàn hiện đang sẵn sàng!" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B" HorizontalAlignment="Center" />
+                        <TextBlock Text="Bấm nút bên dưới để mở bàn và bắt đầu tính giờ" Foreground="#64748B" FontSize="13" HorizontalAlignment="Center" Margin="0,4,0,24" />
+                        
+                        <Button Command="{Binding StartSessionCommand}" 
+                                Style="{StaticResource MaterialDesignRaisedButton}" 
+                                Background="#00897B" BorderBrush="#00897B"
+                                Height="48" FontSize="15" FontWeight="Bold">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="PlayCircleOutline" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="MỞ BÀN (BẮT ĐẦU CHƠI)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- TRƯỜNG HỢP 2: BÀN ĐANG CHƠI (OCCUPIED) -->
+                    <Grid Grid.Row="1" Visibility="{Binding CanCheckout, Converter={StaticResource BoolToVisConverter}}">
+                        <Grid.RowDefinitions>
+                            <!-- Widget tính tiền giờ -->
+                            <RowDefinition Height="Auto" />
+                            <!-- Danh sách món đã gọi -->
+                            <RowDefinition Height="*" />
+                            <!-- Thực đơn gọi món nhanh -->
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- ĐỒNG HỒ & TÍNH TIỀN GIỜ -->
+                        <Border Grid.Row="0" Background="#F8FAFC" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Thời gian chơi" FontSize="11" Foreground="#64748B" />
+                                    <TextBlock Text="{Binding CurrentDuration, Converter={StaticResource DurationConverter}}" 
+                                               FontSize="20" FontWeight="Bold" Foreground="#DC2626" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                    <TextBlock Text="Tiền giờ tạm tính" FontSize="11" Foreground="#64748B" HorizontalAlignment="Right" />
+                                    <TextBlock Text="{Binding CurrentTableAmount, Converter={StaticResource CurrencyConverter}}" 
+                                               FontSize="18" FontWeight="Bold" Foreground="#00897B" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- DANH SÁCH MÓN ĐÃ GỌI (F&B) -->
+                        <GroupBox Grid.Row="1" Header="Dịch vụ &amp; Món đã gọi" Style="{StaticResource MaterialDesignGroupBox}"
+                                  materialDesign:ColorZoneAssist.Mode="Standard" Margin="0,0,0,10">
+                            <ListBox ItemsSource="{Binding CurrentSessionProducts}" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{Binding ProductName}" FontWeight="Medium" Foreground="#1E293B" />
+                                                <TextBlock Text="{Binding UnitPrice, Converter={StaticResource CurrencyConverter}}" FontSize="11" Foreground="#64748B" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding Quantity, StringFormat='x{0}'}" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Amount, Converter={StaticResource CurrencyConverter}}" 
+                                                       FontWeight="Bold" Foreground="#00897B" VerticalAlignment="Center" Margin="8,0" />
+                                            <!-- Nút xóa món -->
+                                            <Button Grid.Column="3" Style="{StaticResource MaterialDesignIconButton}" 
+                                                    Command="{Binding DataContext.RemoveProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Width="24" Height="24" Padding="0" Foreground="#EF4444" ToolTip="Xóa món">
+                                                <materialDesign:PackIcon Kind="CloseCircleOutline" Width="18" Height="18" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </GroupBox>
+
+                        <!-- GỌI MÓN NHANH -->
+                        <Expander Grid.Row="2" Header="Thêm đồ uống / Thức ăn nhanh" IsExpanded="False" Margin="0,0,0,10">
+                            <ScrollViewer MaxHeight="140" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding AvailableProducts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="4,6">
+                                                <Grid>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" FontSize="12" />
+                                                        <TextBlock Text="{Binding Price, Converter={StaticResource CurrencyConverter}}" FontSize="11" Foreground="#00897B" />
+                                                    </StackPanel>
+                                                    <Button HorizontalAlignment="Right" Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                            Command="{Binding DataContext.AddProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Height="28" Padding="10,0" Content="+ Thêm" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Expander>
+                    </Grid>
+
+                    <!-- FOOTER THANH TOÁN (KHI ĐANG CHƠI) -->
+                    <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="0,12,0,0"
+                            Visibility="{Binding CanCheckout, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel>
+                            <!-- Chi tiết tổng cộng -->
+                            <Grid Margin="0,0,0,12">
+                                <TextBlock Text="TỔNG THANH TOÁN:" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Foreground="#1E293B" />
+                                <TextBlock Text="{Binding CurrentTotalAmount, Converter={StaticResource CurrencyConverter}}" 
+                                           FontSize="22" FontWeight="Bold" Foreground="#DC2626" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <!-- Nút thanh toán -->
+                            <Button Command="{Binding CheckoutCommand}" 
+                                    Style="{StaticResource MaterialDesignRaisedButton}" 
+                                    Background="#DC2626" BorderBrush="#DC2626"
+                                    Height="48" FontSize="15" FontWeight="Bold">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="CashRegister" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="THANH TOÁN &amp; TRẢ BÀN" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
