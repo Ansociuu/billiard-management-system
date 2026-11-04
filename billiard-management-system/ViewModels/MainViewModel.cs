@@ -32,6 +32,7 @@ namespace billiard_management_system.ViewModels
 
             // Khởi tạo các ViewModel con
             TableManagementVM = new TableManagementViewModel();
+            TableManagementVM.NotificationRequested += ShowNotification;
             TableManagementVM.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(BaseViewModel.ErrorMessage) && !string.IsNullOrWhiteSpace(TableManagementVM.ErrorMessage))
@@ -40,7 +41,17 @@ namespace billiard_management_system.ViewModels
                 }
             };
 
-            ProductsVM = new MenuPlaceholderViewModel("Quản lý Dịch vụ", "FoodForkDrink", "Theo dõi danh mục sản phẩm, đồ uống, món ăn phục vụ tại quán.");
+            if (CanAccessProducts)
+            {
+                var prodVm = new ProductManagementViewModel();
+                prodVm.NotificationRequested += ShowNotification;
+                ProductsVM = prodVm;
+            }
+            else
+            {
+                ProductsVM = new MenuPlaceholderViewModel("Quản lý Dịch vụ", "FoodForkDrink", "Theo dõi danh mục sản phẩm, đồ uống, món ăn phục vụ tại quán.");
+            }
+
             InvoicesVM = new MenuPlaceholderViewModel("Hóa đơn & Tra cứu Thu ngân", "ReceiptTextOutline", "Xem lại lịch sử phiên chơi, chi tiết hóa đơn thanh toán và đối soát ca trực.");
             ReportsVM = new MenuPlaceholderViewModel("Báo cáo Doanh thu & Thống kê", "ChartBar", "Biểu đồ thống kê doanh số theo ngày, tuần, tháng và công suất khai thác bàn.");
 
@@ -80,6 +91,14 @@ namespace billiard_management_system.ViewModels
                     HandleAccessDenied("Navigation.Products", msg);
                     return;
                 }
+
+                if (!(ProductsVM is ProductManagementViewModel))
+                {
+                    var prodVm = new ProductManagementViewModel();
+                    prodVm.NotificationRequested += ShowNotification;
+                    ProductsVM = prodVm;
+                }
+
                 CurrentViewModel = ProductsVM;
                 ActiveMenu = "Products";
             });
@@ -196,7 +215,6 @@ namespace billiard_management_system.ViewModels
 
         #region Role-Based Access Control (RBAC) Permissions
 
-        // Phân quyền hiển thị Menu theo RBAC
         public bool IsAdmin => UserSession.IsAdmin;
         public bool IsStaff => UserSession.IsStaff;
         public bool CanAccessTables => UserSession.HasPermission(PermissionCodes.TableView);
@@ -292,7 +310,6 @@ namespace billiard_management_system.ViewModels
             {
                 _clockTimer.Stop();
 
-                // Ghi vết đăng xuất vào AuditLogs và giải phóng phiên
                 await _authService.LogoutAsync(UserSession.CurrentUser?.UserId);
 
                 LogoutRequested?.Invoke();

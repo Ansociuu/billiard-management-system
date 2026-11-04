@@ -1,0 +1,336 @@
+<UserControl x:Class="billiard_management_system.Views.ProductManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:billiard_management_system.Helpers.Converters"
+             mc:Ignorable="d"
+             d:DesignHeight="720" d:DesignWidth="1120"
+             Background="#F1F5F9">
+
+    <UserControl.Resources>
+        <converters:CurrencyConverter x:Key="CurrencyConverter" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+    </UserControl.Resources>
+
+    <Grid Margin="16">
+        <TabControl Style="{StaticResource MaterialDesignFilledTabControl}" Background="Transparent" BorderThickness="0">
+            <!-- ========================================================================= -->
+            <!-- TAB 1: QUẢN LÝ SẢN PHẨM & DỊCH VỤ (PRODUCTS CRUD, SEARCH & FILTER)        -->
+            <!-- ========================================================================= -->
+            <TabItem Header="🍹 DANH SÁCH SẢN PHẨM &amp; DỊCH VỤ">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- THANH TÌM KIẾM, BỘ LỌC & THỐNG KÊ NHANH -->
+                    <Border Grid.Row="0" Background="White" CornerRadius="10" Padding="16,12" Margin="0,0,0,14">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Tìm kiếm sản phẩm -->
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                     materialDesign:HintAssist.Hint="🔍 Tìm tên sản phẩm, đơn vị, danh mục..."
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     Padding="12,8" FontSize="13" VerticalAlignment="Center" />
+
+                            <!-- Bộ lọc theo Danh mục & Trạng thái -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0">
+                                <RadioButton Content="Tất cả" IsChecked="True"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterCategoryCommand}" CommandParameter="All" Margin="0,0,6,0" />
+                                <RadioButton Content="Nước giải khát"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterCategoryCommand}" CommandParameter="1" Margin="0,0,6,0" />
+                                <RadioButton Content="Đồ ăn nhanh"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterCategoryCommand}" CommandParameter="2" Margin="0,0,6,0" />
+                                <RadioButton Content="Khác"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterCategoryCommand}" CommandParameter="3" Margin="0,0,10,0" />
+
+                                <Border Width="1" Height="22" Background="#E2E8F0" Margin="0,0,10,0" />
+
+                                <Button Content="Đang bán" Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Command="{Binding FilterStatusCommand}" CommandParameter="Active" Height="30" Padding="10,0" FontSize="12" Margin="0,0,4,0" />
+                                <Button Content="Ngừng bán" Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Command="{Binding FilterStatusCommand}" CommandParameter="Inactive" Height="30" Padding="10,0" FontSize="12" Margin="0,0,4,0" />
+                                <Button Content="Tất cả TT" Style="{StaticResource MaterialDesignFlatButton}"
+                                        Command="{Binding FilterStatusCommand}" CommandParameter="All" Height="30" Padding="8,0" FontSize="12" />
+                            </StackPanel>
+
+                            <!-- Thống kê & Nút Tạo mới -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="#DCFCE7" CornerRadius="14" Padding="10,5" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Đang bán: " Foreground="#15803D" FontSize="12" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ActiveProductsCount}" Foreground="#15803D" FontSize="12" FontWeight="Bold" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#FEE2E2" CornerRadius="14" Padding="10,5" Margin="0,0,10,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Ngừng bán: " Foreground="#B91C1C" FontSize="12" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding InactiveProductsCount}" Foreground="#B91C1C" FontSize="12" FontWeight="Bold" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Button Command="{Binding PrepareNewProductCommand}"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Background="#00897B" BorderBrush="#00897B"
+                                        Height="36" Padding="12,0" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="PlusCircleOutline" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <TextBlock Text="Thêm sản phẩm" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Command="{Binding RefreshCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Height="36" Padding="10,0" ToolTip="Làm mới">
+                                    <materialDesign:PackIcon Kind="Refresh" Width="18" Height="18" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- MAIN CONTENT: DANH SÁCH SẢN PHẨM (TRÁI) + FORM CRUD (PHẢI) -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="410" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- DANH SÁCH SẢN PHẨM -->
+                        <Border Grid.Column="0" Background="White" CornerRadius="10" Padding="16" Margin="0,0,16,0">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                            </Border.Effect>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="FoodForkDrink" Width="22" Height="22" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Thực đơn Sản phẩm &amp; Dịch vụ (Products)" FontSize="16" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <DataGrid Grid.Row="1"
+                                          ItemsSource="{Binding FilteredProducts}"
+                                          SelectedItem="{Binding SelectedProduct, Mode=TwoWay}"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          IsReadOnly="True"
+                                          SelectionMode="Single"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="Horizontal"
+                                          HorizontalGridLinesBrush="#F1F5F9"
+                                          BorderThickness="0"
+                                          RowHeight="46">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Mã SP" Binding="{Binding ProductId}" Width="65" />
+                                        <DataGridTextColumn Header="Tên sản phẩm / Dịch vụ" Binding="{Binding ProductName}" Width="*" FontWeight="Bold" />
+                                        <DataGridTextColumn Header="Danh mục" Binding="{Binding CategoryName}" Width="145" />
+                                        <DataGridTextColumn Header="Đơn vị" Binding="{Binding Unit}" Width="85" />
+                                        <DataGridTextColumn Header="Đơn giá bán" Binding="{Binding Price, Converter={StaticResource CurrencyConverter}}" Width="125" FontWeight="SemiBold" />
+                                        <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplayName}" Width="115" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <!-- FORM THÊM / SỬA SẢN PHẨM -->
+                        <Border Grid.Column="1" Background="White" CornerRadius="10" Padding="20">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" Color="#000000" Opacity="0.06" ShadowDepth="2" />
+                            </Border.Effect>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="0,0,0,12" Margin="0,0,0,14">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="TagEditOutline" Width="22" Height="22" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding ProductFormTitle}" FontSize="15" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Thông báo lỗi nếu có -->
+                                    <Border Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,12"
+                                            Visibility="{Binding HasError, Converter={StaticResource BoolToVisConverter}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AlertCircleOutline" Foreground="#DC2626" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12" TextWrapping="Wrap" Width="310" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBox Text="{Binding FormProductName, UpdateSourceTrigger=PropertyChanged}"
+                                             materialDesign:HintAssist.Hint="Tên sản phẩm / dịch vụ *"
+                                             Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                             FontSize="13" Margin="0,0,0,14" />
+
+                                    <ComboBox ItemsSource="{Binding ActiveCategories}"
+                                              SelectedValue="{Binding FormCategoryId, Mode=TwoWay}"
+                                              SelectedValuePath="CategoryId"
+                                              DisplayMemberPath="CategoryName"
+                                              materialDesign:HintAssist.Hint="Danh mục sản phẩm *"
+                                              Style="{StaticResource MaterialDesignFloatingHintComboBox}"
+                                              FontSize="13" Margin="0,0,0,14" />
+
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="130" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding FormUnit, UpdateSourceTrigger=PropertyChanged}"
+                                                 materialDesign:HintAssist.Hint="Đơn vị (Lon, Chai...)*"
+                                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                 FontSize="13" Margin="0,0,12,0" />
+
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding FormPriceText, UpdateSourceTrigger=PropertyChanged}"
+                                                 materialDesign:HintAssist.Hint="Giá bán (VNĐ, >= 0) *"
+                                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                 FontSize="14" FontWeight="Bold" Foreground="#00897B" />
+                                    </Grid>
+
+                                    <TextBox Text="{Binding FormImageUrl, UpdateSourceTrigger=PropertyChanged}"
+                                             materialDesign:HintAssist.Hint="Đường dẫn ảnh sản phẩm (ImageUrl)"
+                                             Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                             FontSize="12" Margin="0,0,0,14" />
+
+                                    <CheckBox Content="Đang kinh doanh (Hiển thị trên menu gọi món)"
+                                              IsChecked="{Binding FormProductIsActive, Mode=TwoWay}"
+                                              FontWeight="SemiBold" Foreground="#0F172A" Margin="0,0,0,20" />
+
+                                    <Button Command="{Binding SaveProductCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"
+                                            Background="#00897B" BorderBrush="#00897B"
+                                            Height="44" FontSize="14" FontWeight="Bold" Margin="0,0,0,10">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="ContentSaveOutline" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding ProductSaveButtonText}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Command="{Binding ToggleProductActiveCommand}"
+                                            Visibility="{Binding IsProductEditMode, Converter={StaticResource BoolToVisConverter}}"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Foreground="#D97706" BorderBrush="#D97706"
+                                            Height="38" FontSize="12">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="ArchiveOutline" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding ToggleProductActiveButtonText}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 2: QUẢN LÝ DANH MỤC SẢN PHẨM (PRODUCT CATEGORIES CRUD)                -->
+            <!-- ========================================================================= -->
+            <TabItem Header="🗂️ QUẢN LÝ DANH MỤC DỊCH VỤ">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="6*" />
+                        <ColumnDefinition Width="4*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- DANH SÁCH DANH MỤC -->
+                    <Border Grid.Column="0" Background="White" CornerRadius="10" Padding="18" Margin="0,0,16,0">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="FormatListBulletedType" Width="22" Height="22" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Danh mục Dịch vụ &amp; Sản phẩm (ProductCategories)" FontSize="16" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <Button HorizontalAlignment="Right"
+                                        Command="{Binding PrepareNewCategoryCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Height="32" Padding="12,0" FontSize="12" Content="+ Thêm danh mục mới" />
+                            </Grid>
+
+                            <DataGrid Grid.Row="1"
+                                      ItemsSource="{Binding AllCategories}"
+                                      SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      IsReadOnly="True"
+                                      SelectionMode="Single"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="#F1F5F9"
+                                      BorderThickness="0"
+                                      RowHeight="44">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding CategoryId}" Width="55" />
+                                    <DataGridTextColumn Header="Tên danh mục" Binding="{Binding CategoryName}" Width="200" FontWeight="Bold" />
+                                    <DataGridTextColumn Header="Mô tả" Binding="{Binding Description}" Width="*" />
+                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplayName}" Width="135" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <!-- FORM THÊM / SỬA DANH MỤC -->
+                    <Border Grid.Column="1" Background="White" CornerRadius="10" Padding="20" VerticalAlignment="Top">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                        </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="{Binding CategoryFormTitle}" FontSize="16" FontWeight="Bold" Foreground="#00897B" Margin="0,0,0,14" />
+
+                            <TextBox Text="{Binding FormCategoryName, UpdateSourceTrigger=PropertyChanged}"
+                                     materialDesign:HintAssist.Hint="Tên danh mục (vd: Nước giải khát) *"
+                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                     FontSize="13" Margin="0,0,0,14" />
+
+                            <TextBox Text="{Binding FormCategoryDescription, UpdateSourceTrigger=PropertyChanged}"
+                                     materialDesign:HintAssist.Hint="Mô tả danh mục"
+                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                     FontSize="13" Margin="0,0,0,14" />
+
+                            <CheckBox Content="Đang kinh doanh"
+                                      IsChecked="{Binding FormCategoryIsActive, Mode=TwoWay}"
+                                      FontWeight="SemiBold" Margin="0,0,0,18" />
+
+                            <Button Command="{Binding SaveCategoryCommand}"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                    Background="#00897B" BorderBrush="#00897B"
+                                    Height="42" FontWeight="Bold"
+                                    Content="{Binding CategorySaveButtonText}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>
