@@ -326,6 +326,25 @@ namespace billiard_management_system.Services
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 using (var trans = await conn.BeginTransactionAsync())
                 {
+                    string oldValuesJson = null;
+                    const string selectOldUserSql = "SELECT Username, FullName, RoleId, Phone, IsActive FROM Users WHERE UserId = @UserId LIMIT 1;";
+                    using (var oldCmd = new MySqlCommand(selectOldUserSql, conn, trans))
+                    {
+                        oldCmd.Parameters.AddWithValue("@UserId", user.UserId);
+                        using (var r = await oldCmd.ExecuteReaderAsync())
+                        {
+                            if (await r.ReadAsync())
+                            {
+                                string oldU = (r.GetString("Username") ?? string.Empty).Replace("\"", "\\\"");
+                                string oldF = (r.GetString("FullName") ?? string.Empty).Replace("\"", "\\\"");
+                                int oldR = r.GetInt32("RoleId");
+                                string oldP = r.IsDBNull(r.GetOrdinal("Phone")) ? string.Empty : r.GetString("Phone").Replace("\"", "\\\"");
+                                bool oldAct = r.GetBoolean("IsActive");
+                                oldValuesJson = $"{{\"Username\":\"{oldU}\",\"FullName\":\"{oldF}\",\"RoleId\":{oldR},\"Phone\":\"{oldP}\",\"IsActive\":{(oldAct ? "true" : "false")}}}";
+                            }
+                        }
+                    }
+
                     // 1. Cập nhật bảng Users
                     string updateUserSql = changePassword
                         ? @"UPDATE Users 
@@ -377,13 +396,18 @@ namespace billiard_management_system.Services
 
                     await trans.CommitAsync();
 
+                    // Tuyệt đối không ghi mật khẩu hoặc PasswordHash vào NewValues
+                    string newValuesJson = $"{{\"Username\":\"{(user.Username ?? string.Empty).Replace("\"", "\\\"")}\",\"FullName\":\"{cleanFullName.Replace("\"", "\\\"")}\",\"RoleId\":{user.RoleId},\"Phone\":\"{(cleanPhone ?? string.Empty).Replace("\"", "\\\"")}\",\"Position\":\"{(cleanPosition ?? string.Empty).Replace("\"", "\\\"")}\",\"IsActive\":{(user.IsActive ? "true" : "false")},\"PasswordReset\":{(changePassword ? "true" : "false")}}}";
+
                     string pwdNote = changePassword ? " (có đặt lại mật khẩu)" : string.Empty;
                     await _auditLogService.LogAsync(
                         UserSession.CurrentUser?.UserId,
                         "UPDATE_USER",
                         "User",
                         user.UserId,
-                        $"Cập nhật hồ sơ nhân viên '{user.Username}' ({cleanFullName}), RoleId={user.RoleId}, IsActive={user.IsActive}{pwdNote}");
+                        $"Cập nhật hồ sơ nhân viên '{user.Username}' ({cleanFullName}), RoleId={user.RoleId}, IsActive={user.IsActive}{pwdNote}",
+                        oldValuesJson,
+                        newValuesJson);
 
                     return (true, $"Cập nhật thông tin nhân viên [{cleanFullName}] thành công!");
                 }
