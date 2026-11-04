@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using billiard_management_system.Helpers;
@@ -14,11 +15,15 @@ namespace billiard_management_system.Services
         (bool Valid, string Message) ValidateInvoiceDetail(InvoiceDetail detail);
         Task<(bool Success, Invoice Invoice, string Message)> CreateOrRefreshInvoiceForSessionAsync(long sessionId, int tableId, long userId, decimal discountAmount = 0m);
         Task<Invoice> GetInvoiceBySessionIdAsync(long sessionId);
+        Task<(bool Success, string InvoiceCode, string Message)> PayInvoiceAsync(long invoiceId, long userId, decimal discountAmount, string paymentMethod);
         Task<(bool Success, string InvoiceCode, string Message)> CheckoutAsync(long sessionId, int tableId, long userId, decimal discountAmount, string paymentMethod);
     }
 
     public class OrderService : IOrderService
     {
+        private static readonly ConcurrentDictionary<long, byte> ActiveSessionCheckouts = new ConcurrentDictionary<long, byte>();
+        private static readonly ConcurrentDictionary<long, byte> ActiveInvoicePayments = new ConcurrentDictionary<long, byte>();
+
         private readonly IAuditLogService _auditLogService;
         private readonly IPricingRuleService _pricingRuleService;
 
@@ -567,13 +572,189 @@ namespace billiard_management_system.Services
             }
         }
 
+        /// <summary>
+        /// Thanh toán một hóa đơn đang ở trạng thái Pending (hỗ trợ Cash / BankTransfer),
+        /// cập nhật PaymentMethod, PaidAt, Status = 'Paid' và đồng bộ đóng phiên chơi + trả bàn trong 1 transaction.
+        /// Chặn thanh toán trùng khi người dùng bấm nhiều lần.
+        /// </summary>
+        public async Task<(bool Success, string InvoiceCode, string Message)> PayInvoiceAsync(
+            long invoiceId, long userId, decimal discountAmount, string paymentMethod)
+        {
+            if (invoiceId <= 0)
+            {
+                return (false, string.Empty, "Mã hóa đơn không hợp lệ!");
+            }
+
+            if (!ActiveInvoicePayments.TryAdd(invoiceId, 1))
+            {
+                return (false, string.Empty, $"Hóa đơn #{invoiceId} đang được xử lý thanh toán, vui lòng không bấm lặp lại!");
+            }
+
+            try
+            {
+                var (canPay, payDeniedMsg) = UserSession.CheckAccess(PermissionCodes.InvoicePay, "Thanh toán hóa đơn");
+                if (!canPay)
+                {
+                    await _auditLogService.LogAsync(userId, "ACCESS_DENIED", "Invoice", invoiceId, payDeniedMsg);
+                    return (false, string.Empty, payDeniedMsg);
+                }
+
+                if (discountAmount < 0)
+                {
+                    return (false, string.Empty, "Số tiền giảm giá không được âm!");
+                }
+
+                string normalizedMethod = string.IsNullOrWhiteSpace(paymentMethod) ? "Cash" : paymentMethod.Trim();
+                if (!string.Equals(normalizedMethod, "Cash", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(normalizedMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (false, string.Empty, "Phương thức thanh toán không hợp lệ (Chỉ chấp nhận Cash hoặc BankTransfer)!");
+                }
+                normalizedMethod = string.Equals(normalizedMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase)
+                    ? "BankTransfer"
+                    : "Cash";
+
+                DateTime now = DateTime.Now;
+
+                using (var conn = await DatabaseHelper.OpenConnectionAsync())
+                using (var trans = await conn.BeginTransactionAsync())
+                {
+                    const string lockInvSql = @"
+                        SELECT i.InvoiceCode, i.SessionId, i.TableAmount, i.ServiceAmount, i.Status,
+                               s.TableId, s.Status AS SessionStatus
+                        FROM Invoices i
+                        INNER JOIN Sessions s ON i.SessionId = s.SessionId
+                        WHERE i.InvoiceId = @InvoiceId
+                        FOR UPDATE;";
+
+                    string invoiceCode;
+                    long sessionId;
+                    decimal tableAmount;
+                    decimal serviceAmount;
+                    string invStatus;
+                    int tableId;
+                    string sessionStatus;
+
+                    using (var cmd = new MySqlCommand(lockInvSql, conn, trans))
+                    {
+                        cmd.Parameters.AddWithValue("@InvoiceId", invoiceId);
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            if (!await reader.ReadAsync())
+                            {
+                                await trans.RollbackAsync();
+                                return (false, string.Empty, $"Không tìm thấy hóa đơn #{invoiceId}!");
+                            }
+
+                            invoiceCode = reader.GetString("InvoiceCode");
+                            sessionId = reader.GetInt64("SessionId");
+                            tableAmount = reader.GetDecimal("TableAmount");
+                            serviceAmount = reader.GetDecimal("ServiceAmount");
+                            invStatus = reader.GetString("Status");
+                            tableId = reader.GetInt32("TableId");
+                            sessionStatus = reader.GetString("SessionStatus");
+                        }
+                    }
+
+                    if (string.Equals(invStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await trans.RollbackAsync();
+                        return (false, invoiceCode, $"Hóa đơn {invoiceCode} đã được thanh toán trước đó!");
+                    }
+
+                    if (string.Equals(invStatus, "Cancelled", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(sessionStatus, "Cancelled", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await trans.RollbackAsync();
+                        return (false, invoiceCode, $"Không thể thanh toán hóa đơn {invoiceCode} vì hóa đơn hoặc phiên chơi đã bị hủy!");
+                    }
+
+                    decimal totalBeforeDiscount = tableAmount + serviceAmount;
+                    decimal clampedDiscount = Math.Min(totalBeforeDiscount, Math.Max(0m, discountAmount));
+                    decimal finalAmount = Math.Max(0m, totalBeforeDiscount - clampedDiscount);
+
+                    const string paySql = @"
+                        UPDATE Invoices
+                        SET UserId = @UserId,
+                            DiscountAmount = @DiscountAmount,
+                            TotalAmount = @TotalAmount,
+                            Status = 'Paid',
+                            PaymentMethod = @PaymentMethod,
+                            PaidAt = @Now
+                        WHERE InvoiceId = @InvoiceId;";
+
+                    using (var cmdPay = new MySqlCommand(paySql, conn, trans))
+                    {
+                        cmdPay.Parameters.AddWithValue("@UserId", userId);
+                        cmdPay.Parameters.AddWithValue("@DiscountAmount", clampedDiscount);
+                        cmdPay.Parameters.AddWithValue("@TotalAmount", finalAmount);
+                        cmdPay.Parameters.AddWithValue("@PaymentMethod", normalizedMethod);
+                        cmdPay.Parameters.AddWithValue("@Now", now);
+                        cmdPay.Parameters.AddWithValue("@InvoiceId", invoiceId);
+                        await cmdPay.ExecuteNonQueryAsync();
+                    }
+
+                    if (string.Equals(sessionStatus, "Active", StringComparison.OrdinalIgnoreCase))
+                    {
+                        const string closeSessionSql = @"
+                            UPDATE Sessions
+                            SET Status = 'Completed', EndTime = @Now, TableAmount = @TableAmount
+                            WHERE SessionId = @SessionId;";
+
+                        using (var cmdClose = new MySqlCommand(closeSessionSql, conn, trans))
+                        {
+                            cmdClose.Parameters.AddWithValue("@Now", now);
+                            cmdClose.Parameters.AddWithValue("@TableAmount", tableAmount);
+                            cmdClose.Parameters.AddWithValue("@SessionId", sessionId);
+                            await cmdClose.ExecuteNonQueryAsync();
+                        }
+                    }
+
+                    const string resetTableSql = "UPDATE Tables SET Status = 'Available' WHERE TableId = @TableId;";
+                    using (var cmdTable = new MySqlCommand(resetTableSql, conn, trans))
+                    {
+                        cmdTable.Parameters.AddWithValue("@TableId", tableId);
+                        await cmdTable.ExecuteNonQueryAsync();
+                    }
+
+                    await trans.CommitAsync();
+
+                    await _auditLogService.LogAsync(
+                        userId, "INVOICE_PAID", "Invoice", invoiceId,
+                        $"Hoàn tất thanh toán hóa đơn {invoiceCode} (PT: {normalizedMethod}, Tổng: {finalAmount:N0}đ).");
+
+                    return (true, invoiceCode, $"Thanh toán thành công hóa đơn {invoiceCode} ({finalAmount:N0} đ)!");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, string.Empty, $"Lỗi thanh toán hóa đơn: {ex.Message}");
+            }
+            finally
+            {
+                ActiveInvoicePayments.TryRemove(invoiceId, out _);
+            }
+        }
+
         public async Task<(bool Success, string InvoiceCode, string Message)> CheckoutAsync(
             long sessionId, int tableId, long userId, decimal discountAmount, string paymentMethod)
         {
+            if (sessionId <= 0)
+            {
+                return (false, string.Empty, "Mã phiên chơi không hợp lệ!");
+            }
+
+            // Chặn bấm đúp / gọi trùng song song trên cùng 1 phiên chơi
+            if (!ActiveSessionCheckouts.TryAdd(sessionId, 1))
+            {
+                return (false, string.Empty, $"Phiên chơi #{sessionId} đang được xử lý thanh toán, vui lòng không bấm nhiều lần!");
+            }
+
             // Kiểm tra quyền kết thúc phiên (SESSION_CLOSE) và thanh toán hóa đơn (INVOICE_PAY)
             var (canClose, closeDeniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionClose, "Kết thúc phiên chơi");
             if (!canClose)
             {
+                ActiveSessionCheckouts.TryRemove(sessionId, out _);
                 await _auditLogService.LogAsync(userId, "ACCESS_DENIED", "Session", sessionId, closeDeniedMsg);
                 return (false, string.Empty, closeDeniedMsg);
             }
@@ -581,12 +762,14 @@ namespace billiard_management_system.Services
             var (canPay, payDeniedMsg) = UserSession.CheckAccess(PermissionCodes.InvoicePay, "Thanh toán hóa đơn");
             if (!canPay)
             {
+                ActiveSessionCheckouts.TryRemove(sessionId, out _);
                 await _auditLogService.LogAsync(userId, "ACCESS_DENIED", "Invoice", sessionId, payDeniedMsg);
                 return (false, string.Empty, payDeniedMsg);
             }
 
             if (discountAmount < 0)
             {
+                ActiveSessionCheckouts.TryRemove(sessionId, out _);
                 return (false, string.Empty, "Số tiền giảm giá không được âm!");
             }
 
@@ -594,6 +777,7 @@ namespace billiard_management_system.Services
             if (!string.Equals(normalizedMethod, "Cash", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(normalizedMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase))
             {
+                ActiveSessionCheckouts.TryRemove(sessionId, out _);
                 return (false, string.Empty, "Phương thức thanh toán không hợp lệ (Chỉ chấp nhận Cash hoặc BankTransfer)!");
             }
             normalizedMethod = string.Equals(normalizedMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase)
@@ -781,6 +965,10 @@ namespace billiard_management_system.Services
             catch (Exception ex)
             {
                 return (false, string.Empty, $"Lỗi thanh toán: {ex.Message}");
+            }
+            finally
+            {
+                ActiveSessionCheckouts.TryRemove(sessionId, out _);
             }
         }
     }
