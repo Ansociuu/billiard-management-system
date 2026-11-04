@@ -358,12 +358,37 @@ INSERT INTO Products (ProductId, CategoryId, ProductName, Unit, Price, ImageUrl,
 (7, 3, 'Khăn Lạnh', 'Cái', 3000.00, NULL, TRUE);
 
 -- 9. TablePricingRules
--- Bàn Pool: Ngày thường 50k/h, Cuối tuần 70k/h
-INSERT INTO TablePricingRules (TableTypeId, RuleName, RuleType, DayType, StartTime, EndTime, HourlyRate, DiscountType, DiscountValue, EffectiveFrom, EffectiveTo, Priority, IsActive) VALUES
-(1, 'Giá ngày thường Bàn Pool', 'BaseRate', 'Weekday', NULL, NULL, 50000.00, NULL, NULL, '2026-01-01', NULL, 1, TRUE),
-(1, 'Giá cuối tuần Bàn Pool', 'BaseRate', 'Weekend', NULL, NULL, 70000.00, NULL, NULL, '2026-01-01', NULL, 2, TRUE),
--- Bàn Carom Libre: Ngày thường 45k/h, Cuối tuần 60k/h
-(2, 'Giá ngày thường Bàn Carom', 'BaseRate', 'Weekday', NULL, NULL, 45000.00, NULL, NULL, '2026-01-01', NULL, 1, TRUE),
-(2, 'Giá cuối tuần Bàn Carom', 'BaseRate', 'Weekend', NULL, NULL, 60000.00, NULL, NULL, '2026-01-01', NULL, 2, TRUE),
--- Bàn 3 Băng: Giá cố định 80k/h
-(3, 'Giá tiêu chuẩn Bàn 3 Băng', 'BaseRate', 'Any', NULL, NULL, 80000.00, NULL, NULL, '2026-01-01', NULL, 1, TRUE);
+-- Bàn Pool: Ngày thường 50k/h, Giờ cao điểm tối 65k/h, Cuối tuần 70k/h, Khuyến mãi Giờ Vàng chiều 15%
+INSERT INTO TablePricingRules (PricingRuleId, TableTypeId, RuleName, RuleType, DayType, StartTime, EndTime, HourlyRate, DiscountType, DiscountValue, EffectiveFrom, EffectiveTo, Priority, IsActive) VALUES
+(1, 1, 'Giá ngày thường Bàn Pool', 'BaseRate', 'Weekday', NULL, NULL, 50000.00, NULL, NULL, '2026-01-01', NULL, 1, TRUE),
+(2, 1, 'Giá cuối tuần Bàn Pool', 'BaseRate', 'Weekend', NULL, NULL, 70000.00, NULL, NULL, '2026-01-01', NULL, 2, TRUE),
+(3, 2, 'Giá ngày thường Bàn Carom', 'BaseRate', 'Weekday', NULL, NULL, 45000.00, NULL, NULL, '2026-01-01', NULL, 1, TRUE),
+(4, 2, 'Giá cuối tuần Bàn Carom', 'BaseRate', 'Weekend', NULL, NULL, 60000.00, NULL, NULL, '2026-01-01', NULL, 2, TRUE),
+(5, 3, 'Giá tiêu chuẩn Bàn 3 Băng', 'BaseRate', 'Any', NULL, NULL, 80000.00, NULL, NULL, '2026-01-01', NULL, 1, TRUE),
+(6, 1, 'Giá giờ cao điểm tối Bàn Pool (18h-23h59)', 'BaseRate', 'Weekday', '18:00:00', '23:59:59', 65000.00, NULL, NULL, '2026-01-01', NULL, 3, TRUE),
+(7, 1, 'Khuyến mãi Giờ Vàng Buổi Chiều (-15%)', 'Promotion', 'Weekday', '13:00:00', '17:00:00', NULL, 'Percentage', 15.00, '2026-01-01', NULL, 5, TRUE);
+
+-- 10. Customers (Khách hàng mẫu phục vụ Demo)
+INSERT INTO Customers (CustomerId, FullName, Phone, LoyaltyPoints) VALUES
+(1, 'Nguyễn Minh Tuấn', '0912345678', 120),
+(2, 'Trần Hoàng Nam', '0987654321', 85);
+
+-- 11. Demo Completed Session & Paid Invoice (Dữ liệu mẫu đối soát Hóa đơn & Báo cáo Doanh thu)
+INSERT INTO Sessions (SessionId, TableId, CustomerId, OpenedByUserId, StartTime, EndTime, TableAmount, Status) VALUES
+(1, 1, 1, 2, DATE_SUB(NOW(), INTERVAL 2 HOUR), DATE_SUB(NOW(), INTERVAL 1 HOUR), 50000.00, 'Completed');
+
+INSERT INTO SessionPricingDetails (SessionId, TableId, BasePricingRuleId, PromotionPricingRuleId, StartTime, EndTime, DurationMinutes, BaseHourlyRate, DiscountType, DiscountValue, FinalHourlyRate, Amount) VALUES
+(1, 1, 1, NULL, DATE_SUB(NOW(), INTERVAL 2 HOUR), DATE_SUB(NOW(), INTERVAL 1 HOUR), 60.00, 50000.00, NULL, 0.00, 50000.00, 50000.00);
+
+INSERT INTO SessionProducts (SessionId, ProductId, Quantity, UnitPrice, Amount) VALUES
+(1, 1, 2, 20000.00, 40000.00),
+(1, 5, 1, 25000.00, 25000.00);
+
+INSERT INTO Invoices (InvoiceId, InvoiceCode, SessionId, UserId, CreatedAt, TableAmount, ServiceAmount, DiscountAmount, TotalAmount, Status, PaymentMethod, PaidAt) VALUES
+(1, 'INV-DEMO-0001', 1, 2, DATE_SUB(NOW(), INTERVAL 1 HOUR), 50000.00, 65000.00, 5000.00, 110000.00, 'Paid', 'Cash', DATE_SUB(NOW(), INTERVAL 1 HOUR));
+
+INSERT INTO InvoiceDetails (InvoiceId, ItemType, ProductId, Description, Quantity, UnitPrice, Amount) VALUES
+(1, 'Table', NULL, 'Tiền giờ Bàn P01 (60 phút - Giá ngày thường Bàn Pool)', 1.00, 50000.00, 50000.00),
+(1, 'Product', 1, 'Bò Húc (RedBull) (Lon)', 2.00, 20000.00, 40000.00),
+(1, 'Product', 5, 'Mì Tôm Trứng (Tô)', 1.00, 25000.00, 25000.00);
+
