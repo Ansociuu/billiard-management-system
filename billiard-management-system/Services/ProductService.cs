@@ -20,6 +20,7 @@ namespace billiard_management_system.Services
         Task<(bool Success, string Message)> ToggleProductActiveAsync(int productId, bool isActive);
         Task<List<SessionProduct>> GetSessionProductsAsync(long sessionId);
         Task<(bool Success, string Message)> AddProductToSessionAsync(long sessionId, int productId, int quantity, decimal unitPrice);
+        Task<(bool Success, string Message)> UpdateSessionProductQuantityAsync(long sessionProductId, int newQuantity);
         Task<(bool Success, string Message)> RemoveProductFromSessionAsync(long sessionProductId);
     }
 
@@ -279,7 +280,6 @@ namespace billiard_management_system.Services
                 return (false, deniedMsg, 0);
             }
 
-            // Kiểm tra tên, đơn vị, giá bán và đường dẫn ảnh
             var (valid, validationMsg) = ValidateProductInput(product);
             if (!valid)
             {
@@ -411,7 +411,6 @@ namespace billiard_management_system.Services
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 {
-                    // Ngừng kinh doanh mềm (IsActive = FALSE) để không phá vỡ dữ liệu hóa đơn cũ (InvoiceDetails / SessionProducts)
                     const string sql = "UPDATE Products SET IsActive = @IsActive WHERE ProductId = @ProductId;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
@@ -521,27 +520,64 @@ namespace billiard_management_system.Services
                 return (false, deniedMsg);
             }
 
-            if (quantity <= 0) return (false, "Số lượng phải lớn hơn 0!");
+            if (sessionId <= 0) return (false, "Phiên chơi không hợp lệ!");
+            if (productId <= 0) return (false, "Vui lòng chọn sản phẩm cần thêm!");
+            if (quantity <= 0) return (false, "Số lượng sản phẩm phải lớn hơn 0!");
             if (unitPrice < 0) return (false, "Đơn giá sản phẩm không hợp lệ!");
 
             try
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
+                using (var trans = await conn.BeginTransactionAsync())
                 {
-                    // Kiểm tra phiên có đang Active không
-                    const string checkSessionSql = "SELECT Status FROM Sessions WHERE SessionId = @SessionId LIMIT 1;";
-                    using (var cmdSess = new MySqlCommand(checkSessionSql, conn))
+                    // 1. Chỉ thêm sản phẩm vào phiên đang hoạt động (Active)
+                    const string checkSessionSql = "SELECT Status FROM Sessions WHERE SessionId = @SessionId FOR UPDATE;";
+                    using (var cmdSess = new MySqlCommand(checkSessionSql, conn, trans))
                     {
                         cmdSess.Parameters.AddWithValue("@SessionId", sessionId);
                         var sessStatus = await cmdSess.ExecuteScalarAsync() as string;
                         if (!string.Equals(sessStatus, "Active", StringComparison.OrdinalIgnoreCase))
                         {
+                            await trans.RollbackAsync();
                             return (false, "Chỉ được phép thêm sản phẩm vào phiên chơi đang hoạt động (Active)!");
                         }
                     }
 
-                    // Kiểm tra sản phẩm cùng mức UnitPrice đã có trong session chưa
-                    // (Nếu sản phẩm vừa đổi giá, dòng cũ giữ nguyên UnitPrice cũ, dòng mới tạo dòng riêng với UnitPrice mới)
+                    // 2. Kiểm tra sản phẩm còn đang kinh doanh và lấy đơn giá hiện tại nếu cần
+                    string productName = null;
+                    decimal effectiveUnitPrice = unitPrice;
+                    const string checkProdSql = "SELECT ProductName, Price, IsActive FROM Products WHERE ProductId = @ProductId LIMIT 1;";
+                    using (var cmdProd = new MySqlCommand(checkProdSql, conn, trans))
+                    {
+                        cmdProd.Parameters.AddWithValue("@ProductId", productId);
+                        using (var reader = await cmdProd.ExecuteReaderAsync())
+                        {
+                            if (!await reader.ReadAsync())
+                            {
+                                await trans.RollbackAsync();
+                                return (false, "Không tìm thấy sản phẩm trong danh mục!");
+                            }
+
+                            bool isProdActive = reader.GetBoolean("IsActive");
+                            productName = reader.GetString("ProductName");
+                            decimal dbPrice = reader.GetDecimal("Price");
+                            reader.Close();
+
+                            if (!isProdActive)
+                            {
+                                await trans.RollbackAsync();
+                                return (false, $"Sản phẩm [{productName}] hiện đã ngừng kinh doanh, không thể thêm vào phiên chơi!");
+                            }
+
+                            if (effectiveUnitPrice <= 0 && dbPrice > 0)
+                            {
+                                effectiveUnitPrice = dbPrice;
+                            }
+                        }
+                    }
+
+                    // 3. Kiểm tra sản phẩm cùng mức UnitPrice đã có trong session chưa
+                    // (Nếu sản phẩm được sửa giá sau đó, các dòng đã ghi nhận giữ nguyên UnitPrice cũ, dòng mới tạo với UnitPrice mới)
                     const string checkSql = @"
                         SELECT SessionProductId, Quantity 
                         FROM SessionProducts 
@@ -551,11 +587,11 @@ namespace billiard_management_system.Services
                     long? existingId = null;
                     int currentQty = 0;
 
-                    using (var cmdCheck = new MySqlCommand(checkSql, conn))
+                    using (var cmdCheck = new MySqlCommand(checkSql, conn, trans))
                     {
                         cmdCheck.Parameters.AddWithValue("@SessionId", sessionId);
                         cmdCheck.Parameters.AddWithValue("@ProductId", productId);
-                        cmdCheck.Parameters.AddWithValue("@UnitPrice", unitPrice);
+                        cmdCheck.Parameters.AddWithValue("@UnitPrice", effectiveUnitPrice);
                         using (var reader = await cmdCheck.ExecuteReaderAsync())
                         {
                             if (await reader.ReadAsync())
@@ -569,13 +605,13 @@ namespace billiard_management_system.Services
                     if (existingId.HasValue)
                     {
                         int newQty = currentQty + quantity;
-                        decimal newAmount = newQty * unitPrice;
+                        decimal newAmount = newQty * effectiveUnitPrice;
                         const string updateSql = @"
                             UPDATE SessionProducts 
                             SET Quantity = @Quantity, Amount = @Amount 
                             WHERE SessionProductId = @Id;";
 
-                        using (var cmdUpdate = new MySqlCommand(updateSql, conn))
+                        using (var cmdUpdate = new MySqlCommand(updateSql, conn, trans))
                         {
                             cmdUpdate.Parameters.AddWithValue("@Quantity", newQty);
                             cmdUpdate.Parameters.AddWithValue("@Amount", newAmount);
@@ -585,27 +621,115 @@ namespace billiard_management_system.Services
                     }
                     else
                     {
-                        decimal amount = quantity * unitPrice;
+                        decimal amount = quantity * effectiveUnitPrice;
                         const string insertSql = @"
                             INSERT INTO SessionProducts (SessionId, ProductId, Quantity, UnitPrice, Amount, CreatedAt)
-                            VALUES (@SessionId, @ProductId, @Quantity, @UnitPrice, @Amount, NOW());";
+                            VALUES (@SessionId, @ProductId, @Quantity, @UnitPrice, @Amount, @CreatedAt);";
 
-                        using (var cmdInsert = new MySqlCommand(insertSql, conn))
+                        using (var cmdInsert = new MySqlCommand(insertSql, conn, trans))
                         {
                             cmdInsert.Parameters.AddWithValue("@SessionId", sessionId);
                             cmdInsert.Parameters.AddWithValue("@ProductId", productId);
                             cmdInsert.Parameters.AddWithValue("@Quantity", quantity);
-                            cmdInsert.Parameters.AddWithValue("@UnitPrice", unitPrice);
+                            cmdInsert.Parameters.AddWithValue("@UnitPrice", effectiveUnitPrice);
                             cmdInsert.Parameters.AddWithValue("@Amount", amount);
+                            cmdInsert.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
                             await cmdInsert.ExecuteNonQueryAsync();
                         }
                     }
+
+                    await trans.CommitAsync();
+
+                    await _auditLogService.LogAsync(
+                        UserSession.CurrentUser?.UserId, "ADD_SESSION_PRODUCT", "SessionProduct", sessionId,
+                        $"Thêm {quantity} x '{productName}' (Đơn giá={effectiveUnitPrice:N0}đ) vào phiên #{sessionId}.");
+
+                    return (true, $"Đã thêm {quantity} {productName} vào bàn!");
                 }
-                return (true, "Thêm món thành công!");
             }
             catch (Exception ex)
             {
                 return (false, $"Lỗi khi thêm món: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật số lượng sản phẩm đã gọi trong phiên chơi.
+        /// Giữ nguyên UnitPrice lịch sử lúc gọi món và tính lại Amount = newQuantity * UnitPrice.
+        /// </summary>
+        public async Task<(bool Success, string Message)> UpdateSessionProductQuantityAsync(long sessionProductId, int newQuantity)
+        {
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Cập nhật số lượng món trong phiên chơi");
+            if (!allowed)
+            {
+                await _auditLogService.LogAsync(UserSession.CurrentUser?.UserId, "ACCESS_DENIED", "SessionProduct", sessionProductId, deniedMsg);
+                return (false, deniedMsg);
+            }
+
+            if (newQuantity <= 0)
+            {
+                return (false, "Số lượng sản phẩm phải lớn hơn 0!");
+            }
+
+            try
+            {
+                using (var conn = await DatabaseHelper.OpenConnectionAsync())
+                using (var trans = await conn.BeginTransactionAsync())
+                {
+                    const string getSql = @"
+                        SELECT sp.SessionId, sp.UnitPrice, s.Status
+                        FROM SessionProducts sp
+                        INNER JOIN Sessions s ON sp.SessionId = s.SessionId
+                        WHERE sp.SessionProductId = @Id
+                        FOR UPDATE;";
+
+                    decimal historicalUnitPrice;
+                    string sessionStatus;
+
+                    using (var cmdGet = new MySqlCommand(getSql, conn, trans))
+                    {
+                        cmdGet.Parameters.AddWithValue("@Id", sessionProductId);
+                        using (var reader = await cmdGet.ExecuteReaderAsync())
+                        {
+                            if (!await reader.ReadAsync())
+                            {
+                                await trans.RollbackAsync();
+                                return (false, "Không tìm thấy dòng sản phẩm trong phiên chơi.");
+                            }
+
+                            historicalUnitPrice = reader.GetDecimal("UnitPrice");
+                            sessionStatus = reader.GetString("Status");
+                        }
+                    }
+
+                    if (!string.Equals(sessionStatus, "Active", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await trans.RollbackAsync();
+                        return (false, "Chỉ được phép chỉnh sửa sản phẩm khi phiên chơi đang hoạt động (Active)!");
+                    }
+
+                    decimal newAmount = newQuantity * historicalUnitPrice;
+                    const string updateSql = @"
+                        UPDATE SessionProducts
+                        SET Quantity = @Quantity,
+                            Amount = @Amount
+                        WHERE SessionProductId = @Id;";
+
+                    using (var cmdUpd = new MySqlCommand(updateSql, conn, trans))
+                    {
+                        cmdUpd.Parameters.AddWithValue("@Quantity", newQuantity);
+                        cmdUpd.Parameters.AddWithValue("@Amount", newAmount);
+                        cmdUpd.Parameters.AddWithValue("@Id", sessionProductId);
+                        await cmdUpd.ExecuteNonQueryAsync();
+                    }
+
+                    await trans.CommitAsync();
+                    return (true, "Đã cập nhật số lượng món!");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Lỗi cập nhật số lượng: {ex.Message}");
             }
         }
 
@@ -622,6 +746,26 @@ namespace billiard_management_system.Services
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 {
+                    const string checkSql = @"
+                        SELECT s.Status
+                        FROM SessionProducts sp
+                        INNER JOIN Sessions s ON sp.SessionId = s.SessionId
+                        WHERE sp.SessionProductId = @Id;";
+
+                    using (var cmdCheck = new MySqlCommand(checkSql, conn))
+                    {
+                        cmdCheck.Parameters.AddWithValue("@Id", sessionProductId);
+                        var status = await cmdCheck.ExecuteScalarAsync() as string;
+                        if (status == null)
+                        {
+                            return (false, "Món cần xóa không tồn tại.");
+                        }
+                        if (!string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return (false, "Không thể xóa sản phẩm khỏi phiên chơi đã kết thúc hoặc đã hủy!");
+                        }
+                    }
+
                     const string sql = "DELETE FROM SessionProducts WHERE SessionProductId = @Id;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
@@ -629,7 +773,7 @@ namespace billiard_management_system.Services
                         await cmd.ExecuteNonQueryAsync();
                     }
                 }
-                return (true, "Đã xóa món!");
+                return (true, "Đã xóa món khỏi phiên chơi!");
             }
             catch (Exception ex)
             {

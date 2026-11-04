@@ -40,6 +40,10 @@ namespace billiard_management_system.ViewModels
         private string _openCustomerName = string.Empty;
         private string _openCustomerPhone = string.Empty;
 
+        // Chọn sản phẩm & nhập số lượng vào phiên chơi (Issue #17)
+        private Product _selectedOrderProduct;
+        private string _orderProductQuantityText = "1";
+
         // Current Billing stats for selected table
         private decimal _currentTableAmount;
         private decimal _currentServiceAmount;
@@ -113,8 +117,14 @@ namespace billiard_management_system.ViewModels
             SwitchTableCommand = new AsyncRelayCommand(OnSwitchTableAsync);
             SetMaintenanceCommand = new AsyncRelayCommand(() => OnChangeSelectedTableStatusAsync("Maintenance"));
             SetAvailableFromMaintenanceCommand = new AsyncRelayCommand(() => OnChangeSelectedTableStatusAsync("Available"));
+
+            // Commands gọi món trong phiên (Issue #17)
             AddProductCommand = new RelayCommand<Product>(OnAddProductAsync);
+            AddSelectedProductWithQuantityCommand = new AsyncRelayCommand(OnAddSelectedProductWithQuantityAsync);
+            IncreaseProductQuantityCommand = new RelayCommand<SessionProduct>(OnIncreaseProductQuantityAsync);
+            DecreaseProductQuantityCommand = new RelayCommand<SessionProduct>(OnDecreaseProductQuantityAsync);
             RemoveProductCommand = new RelayCommand<SessionProduct>(OnRemoveProductAsync);
+
             CheckoutCommand = new AsyncRelayCommand(OnCheckoutAsync, () => SelectedTable != null && SelectedTable.IsOccupied);
 
             // Commands CRUD Bàn (Tables)
@@ -187,6 +197,18 @@ namespace billiard_management_system.ViewModels
         {
             get => _availableProducts;
             set => SetProperty(ref _availableProducts, value);
+        }
+
+        public Product SelectedOrderProduct
+        {
+            get => _selectedOrderProduct;
+            set => SetProperty(ref _selectedOrderProduct, value);
+        }
+
+        public string OrderProductQuantityText
+        {
+            get => _orderProductQuantityText;
+            set => SetProperty(ref _orderProductQuantityText, value);
         }
 
         public BilliardTable SelectedTable
@@ -610,8 +632,13 @@ namespace billiard_management_system.ViewModels
         public ICommand SwitchTableCommand { get; }
         public ICommand SetMaintenanceCommand { get; }
         public ICommand SetAvailableFromMaintenanceCommand { get; }
+
         public ICommand AddProductCommand { get; }
+        public ICommand AddSelectedProductWithQuantityCommand { get; }
+        public ICommand IncreaseProductQuantityCommand { get; }
+        public ICommand DecreaseProductQuantityCommand { get; }
         public ICommand RemoveProductCommand { get; }
+
         public ICommand CheckoutCommand { get; }
 
         public ICommand PrepareNewTableCommand { get; }
@@ -652,6 +679,10 @@ namespace billiard_management_system.ViewModels
 
                 var products = await _productService.GetProductsAsync();
                 AvailableProducts = new ObservableCollection<Product>(products);
+                if (SelectedOrderProduct == null || !AvailableProducts.Any(p => p.ProductId == SelectedOrderProduct.ProductId))
+                {
+                    SelectedOrderProduct = AvailableProducts.FirstOrDefault();
+                }
 
                 var rules = await _pricingRuleService.GetPricingRulesAsync(includeInactive: true);
                 _allPricingRules = new ObservableCollection<TablePricingRule>(rules);
@@ -896,16 +927,48 @@ namespace billiard_management_system.ViewModels
         private async void OnAddProductAsync(Product product)
         {
             if (product == null || SelectedTable == null || SelectedTable.CurrentSession == null) return;
+            await AddProductToCurrentSessionInternalAsync(product, 1);
+        }
+
+        private async Task OnAddSelectedProductWithQuantityAsync()
+        {
+            if (SelectedTable == null || !SelectedTable.IsOccupied || SelectedTable.CurrentSession == null)
+            {
+                ErrorMessage = "Chỉ có thể thêm sản phẩm vào bàn đang chơi (Active)!";
+                return;
+            }
+
+            if (SelectedOrderProduct == null)
+            {
+                ErrorMessage = "Vui lòng chọn sản phẩm cần thêm vào bàn!";
+                return;
+            }
+
+            if (!int.TryParse(OrderProductQuantityText?.Trim(), out int qty) || qty <= 0)
+            {
+                ErrorMessage = "Số lượng sản phẩm phải là số nguyên lớn hơn 0!";
+                Notify(ErrorMessage, "Error");
+                return;
+            }
+
+            await AddProductToCurrentSessionInternalAsync(SelectedOrderProduct, qty);
+            OrderProductQuantityText = "1";
+        }
+
+        private async Task AddProductToCurrentSessionInternalAsync(Product product, int quantity)
+        {
+            ClearError();
 
             var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Thêm dịch vụ vào bàn");
             if (!allowed)
             {
                 ErrorMessage = deniedMsg;
+                Notify(deniedMsg, "Error");
                 return;
             }
 
             var (success, msg) = await _productService.AddProductToSessionAsync(
-                SelectedTable.CurrentSession.SessionId, product.ProductId, 1, product.Price);
+                SelectedTable.CurrentSession.SessionId, product.ProductId, quantity, product.Price);
 
             if (success)
             {
@@ -916,6 +979,49 @@ namespace billiard_management_system.ViewModels
             else
             {
                 ErrorMessage = msg;
+                Notify(msg, "Error");
+            }
+        }
+
+        private async void OnIncreaseProductQuantityAsync(SessionProduct sessionProduct)
+        {
+            if (sessionProduct == null || SelectedTable == null || SelectedTable.CurrentSession == null) return;
+
+            int newQty = sessionProduct.Quantity + 1;
+            var (success, msg) = await _productService.UpdateSessionProductQuantityAsync(sessionProduct.SessionProductId, newQty);
+            if (success)
+            {
+                sessionProduct.Quantity = newQty;
+                await UpdateSelectedTableBillingAsync();
+            }
+            else
+            {
+                ErrorMessage = msg;
+                Notify(msg, "Error");
+            }
+        }
+
+        private async void OnDecreaseProductQuantityAsync(SessionProduct sessionProduct)
+        {
+            if (sessionProduct == null || SelectedTable == null || SelectedTable.CurrentSession == null) return;
+
+            if (sessionProduct.Quantity <= 1)
+            {
+                OnRemoveProductAsync(sessionProduct);
+                return;
+            }
+
+            int newQty = sessionProduct.Quantity - 1;
+            var (success, msg) = await _productService.UpdateSessionProductQuantityAsync(sessionProduct.SessionProductId, newQty);
+            if (success)
+            {
+                sessionProduct.Quantity = newQty;
+                await UpdateSelectedTableBillingAsync();
+            }
+            else
+            {
+                ErrorMessage = msg;
+                Notify(msg, "Error");
             }
         }
 

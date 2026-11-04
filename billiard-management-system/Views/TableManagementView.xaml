@@ -377,57 +377,110 @@
                                     <!-- DANH SÁCH MÓN ĐÃ GỌI -->
                                     <GroupBox Grid.Row="2" Header="Dịch vụ &amp; Món đã gọi" Style="{StaticResource MaterialDesignGroupBox}"
                                               materialDesign:ColorZoneAssist.Mode="Standard" Margin="0,0,0,8">
-                                        <ListBox ItemsSource="{Binding CurrentSessionProducts}" ScrollViewer.VerticalScrollBarVisibility="Auto">
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,4">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0">
-                                                            <TextBlock Text="{Binding ProductName}" FontWeight="Medium" Foreground="#1E293B" />
-                                                            <TextBlock Text="{Binding UnitPrice, Converter={StaticResource CurrencyConverter}}" FontSize="11" Foreground="#64748B" />
-                                                        </StackPanel>
-                                                        <TextBlock Grid.Column="1" Text="{Binding Quantity, StringFormat='x{0}'}" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0" />
-                                                        <TextBlock Grid.Column="2" Text="{Binding Amount, Converter={StaticResource CurrencyConverter}}" 
-                                                                   FontWeight="Bold" Foreground="#00897B" VerticalAlignment="Center" Margin="8,0" />
-                                                        <Button Grid.Column="3" Style="{StaticResource MaterialDesignIconButton}" 
-                                                                Command="{Binding DataContext.RemoveProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}"
-                                                                Width="24" Height="24" Padding="0" Foreground="#EF4444" ToolTip="Xóa món">
-                                                            <materialDesign:PackIcon Kind="CloseCircleOutline" Width="18" Height="18" />
-                                                        </Button>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                        </ListBox>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <ListBox Grid.Row="0" ItemsSource="{Binding CurrentSessionProducts}" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,4">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0">
+                                                                <TextBlock Text="{Binding ProductName}" FontWeight="Medium" Foreground="#1E293B" />
+                                                                <TextBlock Text="{Binding UnitPrice, Converter={StaticResource CurrencyConverter}}" FontSize="11" Foreground="#64748B" />
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
+                                                                <Button Style="{StaticResource MaterialDesignIconButton}"
+                                                                        Command="{Binding DataContext.DecreaseProductQuantityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Width="22" Height="22" Padding="0" Foreground="#475569" ToolTip="Giảm 1">
+                                                                    <materialDesign:PackIcon Kind="MinusCircleOutline" Width="16" Height="16" />
+                                                                </Button>
+                                                                <TextBlock Text="{Binding Quantity, StringFormat='x{0}'}" FontWeight="Bold" VerticalAlignment="Center" Margin="4,0" />
+                                                                <Button Style="{StaticResource MaterialDesignIconButton}"
+                                                                        Command="{Binding DataContext.IncreaseProductQuantityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Width="22" Height="22" Padding="0" Foreground="#00897B" ToolTip="Tăng 1">
+                                                                    <materialDesign:PackIcon Kind="PlusCircleOutline" Width="16" Height="16" />
+                                                                </Button>
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="2" Text="{Binding Amount, Converter={StaticResource CurrencyConverter}}"
+                                                                       FontWeight="Bold" Foreground="#00897B" VerticalAlignment="Center" Margin="8,0" />
+                                                            <Button Grid.Column="3" Style="{StaticResource MaterialDesignIconButton}"
+                                                                    Command="{Binding DataContext.RemoveProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Width="24" Height="24" Padding="0" Foreground="#EF4444" ToolTip="Xóa món">
+                                                                <materialDesign:PackIcon Kind="CloseCircleOutline" Width="18" Height="18" />
+                                                            </Button>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                            <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="4,6,4,0" Margin="0,4,0,0">
+                                                <Grid>
+                                                    <TextBlock Text="Tổng tiền sản phẩm (F&amp;B):" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding CurrentServiceAmount, Converter={StaticResource CurrencyConverter}}"
+                                                               FontSize="13" FontWeight="Bold" Foreground="#00897B" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </Grid>
                                     </GroupBox>
 
                                     <!-- GỌI MÓN NHANH -->
                                     <Expander Grid.Row="3" Header="Thêm đồ uống / Dịch vụ nhanh" IsExpanded="False" Margin="0,0,0,6">
-                                        <ScrollViewer MaxHeight="135" VerticalScrollBarVisibility="Auto">
-                                            <ItemsControl ItemsSource="{Binding AvailableProducts}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="4,6">
-                                                            <Grid>
-                                                                <StackPanel VerticalAlignment="Center">
-                                                                    <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" FontSize="12" />
-                                                                    <TextBlock Text="{Binding Price, Converter={StaticResource CurrencyConverter}}" FontSize="11" Foreground="#00897B" />
-                                                                </StackPanel>
-                                                                <Button HorizontalAlignment="Right" Style="{StaticResource MaterialDesignOutlinedButton}"
-                                                                        Command="{Binding DataContext.AddProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}"
-                                                                        Height="28" Padding="10,0" Content="+ Thêm" />
-                                                            </Grid>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="64" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <ComboBox Grid.Column="0"
+                                                          ItemsSource="{Binding AvailableProducts}"
+                                                          SelectedItem="{Binding SelectedOrderProduct, Mode=TwoWay}"
+                                                          DisplayMemberPath="ProductName"
+                                                          materialDesign:HintAssist.Hint="Chọn sản phẩm..."
+                                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                                          Padding="8,5" FontSize="12" Margin="0,0,6,0" />
+                                                <TextBox Grid.Column="1"
+                                                         Text="{Binding OrderProductQuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                                         materialDesign:HintAssist.Hint="SL"
+                                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                                         Padding="8,5" FontSize="12" Margin="0,0,6,0" />
+                                                <Button Grid.Column="2"
+                                                        Command="{Binding AddSelectedProductWithQuantityCommand}"
+                                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                                        Background="#00897B" BorderBrush="#00897B"
+                                                        Height="32" Padding="10,0" FontSize="12" Content="+ Thêm" />
+                                            </Grid>
+                                            <ScrollViewer MaxHeight="115" VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl ItemsSource="{Binding AvailableProducts}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="4,6">
+                                                                <Grid>
+                                                                    <StackPanel VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" FontSize="12" />
+                                                                        <TextBlock Text="{Binding Price, Converter={StaticResource CurrencyConverter}}" FontSize="11" Foreground="#00897B" />
+                                                                    </StackPanel>
+                                                                    <Button HorizontalAlignment="Right" Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                                            Command="{Binding DataContext.AddProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            Height="28" Padding="10,0" Content="+1" />
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </StackPanel>
                                     </Expander>
                                 </Grid>
 
