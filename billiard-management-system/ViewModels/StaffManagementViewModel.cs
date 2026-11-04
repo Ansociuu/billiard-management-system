@@ -40,6 +40,7 @@ namespace billiard_management_system.ViewModels
         private readonly IUserService _userService;
         private readonly IAuthService _authService;
         private readonly IAuditLogService _auditLogService;
+        private readonly ISystemIntegrationTestService _integrationTestService;
 
         private ObservableCollection<User> _allUsers = new ObservableCollection<User>();
         private ObservableCollection<User> _filteredUsers = new ObservableCollection<User>();
@@ -54,6 +55,12 @@ namespace billiard_management_system.ViewModels
         private DateTime? _auditToDate = DateTime.Today;
         private string _auditCategoryFilter = "All";
         private string _auditSearchKeyword = string.Empty;
+
+        // Kiểm thử tích hợp & Theo dõi lỗi (Integration Testing - Issue #24)
+        private ObservableCollection<IntegrationTestCaseResult> _integrationTestResults = new ObservableCollection<IntegrationTestCaseResult>();
+        private ObservableCollection<DefectTrackingRecord> _defectTrackingRecords = new ObservableCollection<DefectTrackingRecord>();
+        private string _integrationTestSummaryText = "Nhấn nút 'CHẠY KIỂM THỬ TÍCH HỢP TOÀN HỆ THỐNG' để thực thi 5 bộ kịch bản kiểm thử tự động (Happy Path E2E, RBAC, Bàn bận/Phiên đóng/HĐ đã thu, Đầu vào & Lỗi DB, Bảo toàn giá lịch sử).";
+        private bool _isRunningTests;
 
         private User _selectedUser;
         private Role _selectedRoleForRbac;
@@ -77,11 +84,17 @@ namespace billiard_management_system.ViewModels
 
         public event Action<string, string> NotificationRequested;
 
-        public StaffManagementViewModel(IUserService userService = null, IAuthService authService = null, IAuditLogService auditLogService = null)
+        public StaffManagementViewModel(
+            IUserService userService = null,
+            IAuthService authService = null,
+            IAuditLogService auditLogService = null,
+            ISystemIntegrationTestService integrationTestService = null)
         {
             _userService = userService ?? new UserService();
             _authService = authService ?? new AuthService();
             _auditLogService = auditLogService ?? new AuditLogService();
+            _integrationTestService = integrationTestService ?? new SystemIntegrationTestService();
+            _defectTrackingRecords = new ObservableCollection<DefectTrackingRecord>(_integrationTestService.GetDefectTrackingRecords());
 
             Title = "Quản lý Tài khoản & Hồ sơ Nhân viên";
 
@@ -98,6 +111,8 @@ namespace billiard_management_system.ViewModels
             RefreshAuditLogsCommand = new AsyncRelayCommand(LoadAuditLogsAsync);
             FilterAuditCategoryCommand = new RelayCommand<string>(cat => _ = OnFilterAuditCategoryAsync(cat));
             ClearAuditFiltersCommand = new AsyncRelayCommand(ExecuteClearAuditFiltersAsync);
+
+            RunIntegrationTestsCommand = new AsyncRelayCommand(ExecuteRunIntegrationTestsAsync, () => !IsRunningTests);
 
             _ = LoadDataAsync();
         }
@@ -330,6 +345,39 @@ namespace billiard_management_system.ViewModels
         {
             get => _auditSearchKeyword;
             set => SetProperty(ref _auditSearchKeyword, value);
+        }
+
+        // Commands & Properties Kiểm thử tích hợp (Issue #24)
+        public ICommand RunIntegrationTestsCommand { get; }
+
+        public ObservableCollection<IntegrationTestCaseResult> IntegrationTestResults
+        {
+            get => _integrationTestResults;
+            set => SetProperty(ref _integrationTestResults, value);
+        }
+
+        public ObservableCollection<DefectTrackingRecord> DefectTrackingRecords
+        {
+            get => _defectTrackingRecords;
+            set => SetProperty(ref _defectTrackingRecords, value);
+        }
+
+        public string IntegrationTestSummaryText
+        {
+            get => _integrationTestSummaryText;
+            set => SetProperty(ref _integrationTestSummaryText, value);
+        }
+
+        public bool IsRunningTests
+        {
+            get => _isRunningTests;
+            set
+            {
+                if (SetProperty(ref _isRunningTests, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         #endregion
@@ -732,6 +780,39 @@ namespace billiard_management_system.ViewModels
             AuditCategoryFilter = "All";
             AuditSearchKeyword = string.Empty;
             await LoadAuditLogsAsync();
+        }
+
+        private async Task ExecuteRunIntegrationTestsAsync()
+        {
+            if (IsRunningTests) return;
+
+            IsRunningTests = true;
+            IsBusy = true;
+            IntegrationTestSummaryText = "⏳ Đang thực thi bộ kịch bản kiểm thử tích hợp toàn hệ thống...";
+            try
+            {
+                var suiteReport = await _integrationTestService.RunAllIntegrationTestsAsync();
+                IntegrationTestResults = new ObservableCollection<IntegrationTestCaseResult>(suiteReport.Results);
+                DefectTrackingRecords = new ObservableCollection<DefectTrackingRecord>(suiteReport.DefectRecords);
+                IntegrationTestSummaryText = suiteReport.SummaryText;
+
+                await LoadAuditLogsInternalAsync();
+
+                string statusMsg = suiteReport.AllPassed
+                    ? $"Hoàn tất kiểm thử tích hợp: ĐẠT {suiteReport.PassedTests}/{suiteReport.TotalTests} kịch bản (100% PASS)!"
+                    : $"Hoàn tất kiểm thử: Đạt {suiteReport.PassedTests}/{suiteReport.TotalTests} kịch bản.";
+                Notify(statusMsg, suiteReport.AllPassed ? "Success" : "Error");
+            }
+            catch (Exception ex)
+            {
+                IntegrationTestSummaryText = $"Lỗi thực thi kiểm thử tích hợp: {ex.Message}";
+                Notify(IntegrationTestSummaryText, "Error");
+            }
+            finally
+            {
+                IsRunningTests = false;
+                IsBusy = false;
+            }
         }
 
         private void Notify(string message, string type = "Info")
