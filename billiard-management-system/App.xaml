@@ -25,6 +25,9 @@
             <DataTemplate DataType="{x:Type vm:TableManagementViewModel}">
                 <views:TableManagementView />
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ProductManagementViewModel}">
+                <views:ProductManagementView />
+            </DataTemplate>
             <DataTemplate DataType="{x:Type vm:StaffManagementViewModel}">
                 <views:StaffManagementView />
             </DataTemplate>

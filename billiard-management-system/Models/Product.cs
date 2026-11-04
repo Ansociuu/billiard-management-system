@@ -8,10 +8,11 @@ namespace billiard_management_system.Models
         public string Unit { get; set; }
         public decimal Price { get; set; }
         public string ImageUrl { get; set; }
-        public bool IsActive { get; set; }
+        public bool IsActive { get; set; } = true;
 
-        // Extra display property
+        // Extra display properties
         public string CategoryName { get; set; }
+        public string StatusDisplayName => IsActive ? "Đang bán" : "Ngừng bán";
+        public bool HasImage => !string.IsNullOrWhiteSpace(ImageUrl);
     }
 }
-
