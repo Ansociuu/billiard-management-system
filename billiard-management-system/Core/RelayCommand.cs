@@ -36,10 +36,22 @@ namespace billiard_management_system.Core
 
         public void Execute(object parameter)
         {
-            if (_execute != null)
-                _execute();
-            else
-                _executeWithParam?.Invoke(parameter);
+            try
+            {
+                if (_execute != null)
+                    _execute();
+                else
+                    _executeWithParam?.Invoke(parameter);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RelayCommand Error]: {ex}");
+                System.Windows.MessageBox.Show(
+                    $"Không thể thực hiện thao tác:\n\n{ex.Message}",
+                    "Thông báo lỗi thao tác",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+            }
         }
 
         public event EventHandler CanExecuteChanged
@@ -77,7 +89,19 @@ namespace billiard_management_system.Core
 
         public void Execute(object parameter)
         {
-            _execute((T)parameter);
+            try
+            {
+                _execute((T)parameter);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RelayCommand<T> Error]: {ex}");
+                System.Windows.MessageBox.Show(
+                    $"Không thể thực hiện thao tác:\n\n{ex.Message}",
+                    "Thông báo lỗi thao tác",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+            }
         }
 
         public event EventHandler CanExecuteChanged

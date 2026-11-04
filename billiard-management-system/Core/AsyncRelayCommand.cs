@@ -43,6 +43,15 @@ namespace billiard_management_system.Core
                 IsExecuting = true;
                 await _execute();
             }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AsyncRelayCommand Error]: {ex}");
+                System.Windows.MessageBox.Show(
+                    $"Không thể hoàn tất thao tác do phát sinh lỗi:\n\n{ex.Message}",
+                    "Thông báo lỗi thao tác",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+            }
             finally
             {
                 IsExecuting = false;
