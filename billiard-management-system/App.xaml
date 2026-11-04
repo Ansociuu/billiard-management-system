@@ -32,6 +32,9 @@
             <DataTemplate DataType="{x:Type vm:InvoiceManagementViewModel}">
                 <views:InvoiceManagementView />
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ReportManagementViewModel}">
+                <views:ReportManagementView />
+            </DataTemplate>
             <DataTemplate DataType="{x:Type vm:StaffManagementViewModel}">
                 <views:StaffManagementView />
             </DataTemplate>

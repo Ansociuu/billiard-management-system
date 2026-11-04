@@ -82,6 +82,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Views\ReportManagementView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\StaffManagementView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -115,6 +119,10 @@
       <DependentUpon>InvoiceManagementView.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Views\ReportManagementView.xaml.cs">
+      <DependentUpon>ReportManagementView.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Views\StaffManagementView.xaml.cs">
       <DependentUpon>StaffManagementView.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -142,6 +150,7 @@
     <Compile Include="Models\SessionProduct.cs" />
     <Compile Include="Models\Invoice.cs" />
     <Compile Include="Models\InvoiceDetail.cs" />
+    <Compile Include="Models\RevenueReportModels.cs" />
     <Compile Include="Helpers\UserPreferences.cs" />
     <Compile Include="Helpers\UserSession.cs" />
     <Compile Include="Services\AuditLogService.cs" />
@@ -154,11 +163,13 @@
     <Compile Include="Services\ProductService.cs" />
     <Compile Include="Services\CloudinaryService.cs" />
     <Compile Include="Services\OrderService.cs" />
+    <Compile Include="Services\ReportService.cs" />
     <Compile Include="ViewModels\BaseViewModel.cs" />
     <Compile Include="ViewModels\LoginViewModel.cs" />
     <Compile Include="ViewModels\TableManagementViewModel.cs" />
     <Compile Include="ViewModels\ProductManagementViewModel.cs" />
     <Compile Include="ViewModels\InvoiceManagementViewModel.cs" />
+    <Compile Include="ViewModels\ReportManagementViewModel.cs" />
     <Compile Include="ViewModels\StaffManagementViewModel.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
   </ItemGroup>

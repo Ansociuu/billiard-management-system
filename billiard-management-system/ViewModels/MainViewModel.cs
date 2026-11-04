@@ -62,7 +62,16 @@ namespace billiard_management_system.ViewModels
             {
                 InvoicesVM = new MenuPlaceholderViewModel("Hóa đơn & Tra cứu Thu ngân", "ReceiptTextOutline", "Xem lại lịch sử phiên chơi, chi tiết hóa đơn thanh toán và đối soát ca trực.");
             }
-            ReportsVM = new MenuPlaceholderViewModel("Báo cáo Doanh thu & Thống kê", "ChartBar", "Biểu đồ thống kê doanh số theo ngày, tuần, tháng và công suất khai thác bàn.");
+            if (CanAccessReports)
+            {
+                var repVm = new ReportManagementViewModel();
+                repVm.NotificationRequested += ShowNotification;
+                ReportsVM = repVm;
+            }
+            else
+            {
+                ReportsVM = new MenuPlaceholderViewModel("Báo cáo Doanh thu & Thống kê", "ChartBar", "Biểu đồ thống kê doanh số theo ngày, tuần, tháng và công suất khai thác bàn.");
+            }
 
             if (CanAccessStaff)
             {
@@ -144,6 +153,18 @@ namespace billiard_management_system.ViewModels
                     HandleAccessDenied("Navigation.Reports", msg);
                     return;
                 }
+
+                if (ReportsVM is ReportManagementViewModel existingRepVm)
+                {
+                    _ = existingRepVm.LoadReportAsync();
+                }
+                else
+                {
+                    var repVm = new ReportManagementViewModel();
+                    repVm.NotificationRequested += ShowNotification;
+                    ReportsVM = repVm;
+                }
+
                 CurrentViewModel = ReportsVM;
                 ActiveMenu = "Reports";
             });
