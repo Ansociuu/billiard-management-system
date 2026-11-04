@@ -95,6 +95,33 @@ namespace billiard_management_system.Models
             get => _orderedProducts;
             set => SetProperty(ref _orderedProducts, value);
         }
+
+        public string TypeName { get; set; }
+        public string InvoiceCode { get; set; }
+        public decimal ServiceAmount { get; set; }
+        public decimal TotalSessionAmount => TableAmount + ServiceAmount;
+
+        public string StatusDisplay
+        {
+            get
+            {
+                if (string.Equals(Status, "Active", StringComparison.OrdinalIgnoreCase)) return "Đang chơi";
+                if (string.Equals(Status, "Completed", StringComparison.OrdinalIgnoreCase)) return "Đã hoàn tất";
+                if (string.Equals(Status, "Cancelled", StringComparison.OrdinalIgnoreCase)) return "Đã hủy";
+                return Status;
+            }
+        }
+
+        public string DurationDisplay
+        {
+            get
+            {
+                DateTime effectiveEnd = EndTime ?? DateTime.Now;
+                TimeSpan dur = effectiveEnd - StartTime;
+                if (dur < TimeSpan.Zero) dur = TimeSpan.Zero;
+                return $"{(int)dur.TotalHours:D2}h {dur.Minutes:D2}p";
+            }
+        }
     }
 }
 
