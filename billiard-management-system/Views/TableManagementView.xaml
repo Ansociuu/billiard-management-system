@@ -352,6 +352,24 @@
                                                             Content="Hủy phiên" ToolTip="Hủy phiên chơi và trả bàn về trạng thái Trống" />
                                                 </Grid>
                                             </Border>
+
+                                            <!-- CHI TIẾT TÍNH TIỀN THEO KHUNG GIỜ (SessionPricingDetails - Issue #18) -->
+                                            <ItemsControl ItemsSource="{Binding CurrentPricingSegments}" Margin="0,6,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,1">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding RuleSummaryDisplay}" FontSize="10.5" Foreground="#475569" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding DurationDisplay, StringFormat='({0})'}" FontSize="10.5" Foreground="#64748B" Margin="6,0" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding Amount, Converter={StaticResource CurrencyConverter}}" FontSize="10.5" FontWeight="SemiBold" Foreground="#00897B" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                         </StackPanel>
                                     </Border>
 

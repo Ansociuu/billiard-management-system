@@ -29,6 +29,7 @@ namespace billiard_management_system.ViewModels
         private ObservableCollection<TableType> _tableTypes = new ObservableCollection<TableType>();
         private ObservableCollection<TableType> _allTableTypesIncludingInactive = new ObservableCollection<TableType>();
         private ObservableCollection<SessionProduct> _currentSessionProducts = new ObservableCollection<SessionProduct>();
+        private ObservableCollection<SessionPricingDetail> _currentPricingSegments = new ObservableCollection<SessionPricingDetail>();
         private ObservableCollection<Product> _availableProducts = new ObservableCollection<Product>();
 
         private BilliardTable _selectedTable;
@@ -191,6 +192,12 @@ namespace billiard_management_system.ViewModels
         {
             get => _currentSessionProducts;
             set => SetProperty(ref _currentSessionProducts, value);
+        }
+
+        public ObservableCollection<SessionPricingDetail> CurrentPricingSegments
+        {
+            get => _currentPricingSegments;
+            set => SetProperty(ref _currentPricingSegments, value);
         }
 
         public ObservableCollection<Product> AvailableProducts
@@ -783,6 +790,7 @@ namespace billiard_management_system.ViewModels
             if (SelectedTable == null || !SelectedTable.IsOccupied || SelectedTable.CurrentSession == null)
             {
                 CurrentSessionProducts.Clear();
+                CurrentPricingSegments.Clear();
                 CurrentTableAmount = 0;
                 CurrentServiceAmount = 0;
                 CurrentTotalAmount = 0;
@@ -806,11 +814,13 @@ namespace billiard_management_system.ViewModels
         {
             if (SelectedTable == null || SelectedTable.CurrentSession == null) return;
 
-            var (tableAmt, srvAmt, totalAmt, dur) = await _orderService.CalculateSessionBillingAsync(SelectedTable.CurrentSession.SessionId);
+            var (tableAmt, srvAmt, totalAmt, dur, segments) =
+                await _orderService.CalculateSessionBillingDetailedAsync(SelectedTable.CurrentSession.SessionId);
             CurrentTableAmount = tableAmt;
             CurrentServiceAmount = srvAmt;
             CurrentTotalAmount = totalAmt;
             CurrentDuration = dur;
+            CurrentPricingSegments = new ObservableCollection<SessionPricingDetail>(segments ?? new List<SessionPricingDetail>());
         }
 
         private async Task OnStartSessionAsync()

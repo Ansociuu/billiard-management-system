@@ -126,6 +126,7 @@
     <Compile Include="Models\TableType.cs" />
     <Compile Include="Models\BilliardTable.cs" />
     <Compile Include="Models\TablePricingRule.cs" />
+    <Compile Include="Models\SessionPricingDetail.cs" />
     <Compile Include="Models\ProductCategory.cs" />
     <Compile Include="Models\Product.cs" />
     <Compile Include="Models\Customer.cs" />
