@@ -11,6 +11,7 @@
 
     <UserControl.Resources>
         <converters:CurrencyConverter x:Key="CurrencyConverter" />
+        <converters:SafeImageUrlConverter x:Key="SafeImageUrlConverter" />
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
     </UserControl.Resources>
 
@@ -141,11 +142,25 @@
                                           BorderThickness="0"
                                           RowHeight="46">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Mã SP" Binding="{Binding ProductId}" Width="65" />
+                                        <DataGridTextColumn Header="Mã SP" Binding="{Binding ProductId}" Width="60" />
+                                        <DataGridTemplateColumn Header="Ảnh" Width="62">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border Width="36" Height="36" CornerRadius="6" Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="1" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <Grid>
+                                                            <materialDesign:PackIcon Kind="ImageOutline" Width="18" Height="18" Foreground="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            <Image Source="{Binding ImageUrl, Converter={StaticResource SafeImageUrlConverter}}"
+                                                                   Stretch="UniformToFill"
+                                                                   Visibility="{Binding HasImage, Converter={StaticResource BoolToVisConverter}}" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
                                         <DataGridTextColumn Header="Tên sản phẩm / Dịch vụ" Binding="{Binding ProductName}" Width="*" FontWeight="Bold" />
-                                        <DataGridTextColumn Header="Danh mục" Binding="{Binding CategoryName}" Width="145" />
-                                        <DataGridTextColumn Header="Đơn vị" Binding="{Binding Unit}" Width="85" />
-                                        <DataGridTextColumn Header="Đơn giá bán" Binding="{Binding Price, Converter={StaticResource CurrencyConverter}}" Width="125" FontWeight="SemiBold" />
+                                        <DataGridTextColumn Header="Danh mục" Binding="{Binding CategoryName}" Width="140" />
+                                        <DataGridTextColumn Header="Đơn vị" Binding="{Binding Unit}" Width="80" />
+                                        <DataGridTextColumn Header="Đơn giá bán" Binding="{Binding Price, Converter={StaticResource CurrencyConverter}}" Width="120" FontWeight="SemiBold" />
                                         <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplayName}" Width="115" />
                                     </DataGrid.Columns>
                                 </DataGrid>
@@ -208,10 +223,61 @@
                                                  FontSize="14" FontWeight="Bold" Foreground="#00897B" />
                                     </Grid>
 
-                                    <TextBox Text="{Binding FormImageUrl, UpdateSourceTrigger=PropertyChanged}"
-                                             materialDesign:HintAssist.Hint="Đường dẫn ảnh sản phẩm (ImageUrl)"
-                                             Style="{StaticResource MaterialDesignFloatingHintTextBox}"
-                                             FontSize="12" Margin="0,0,0,14" />
+                                    <!-- Khu vực Xem trước & Upload ảnh Cloudinary -->
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="76" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Khung Preview Ảnh -->
+                                            <Border Grid.Column="0" Width="64" Height="64" CornerRadius="8" Background="#E2E8F0" BorderBrush="#CBD5E1" BorderThickness="1" ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                <Grid>
+                                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                        <materialDesign:PackIcon Kind="ImageArea" Width="24" Height="24" Foreground="#64748B" HorizontalAlignment="Center" />
+                                                        <TextBlock Text="No Img" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center" />
+                                                    </StackPanel>
+                                                    <Image Source="{Binding FormImageUrl, Converter={StaticResource SafeImageUrlConverter}}"
+                                                           Stretch="UniformToFill" />
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Nút Upload Cloudinary + URL -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <Grid Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Button Grid.Column="0"
+                                                            Command="{Binding SelectAndUploadImageCommand}"
+                                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                            Foreground="#0284C7" BorderBrush="#0284C7"
+                                                            Height="30" Padding="8,0" FontSize="11">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <materialDesign:PackIcon Kind="CloudUploadOutline" Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                            <TextBlock Text="{Binding UploadButtonText}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                        </StackPanel>
+                                                    </Button>
+
+                                                    <Button Grid.Column="1"
+                                                            Command="{Binding ClearImageCommand}"
+                                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                                            Foreground="#DC2626" Height="30" Padding="6,0" Margin="4,0,0,0"
+                                                            ToolTip="Xóa đường dẫn ảnh">
+                                                        <materialDesign:PackIcon Kind="CloseCircleOutline" Width="16" Height="16" />
+                                                    </Button>
+                                                </Grid>
+
+                                                <TextBox Text="{Binding FormImageUrl, UpdateSourceTrigger=PropertyChanged}"
+                                                         materialDesign:HintAssist.Hint="URL ảnh sản phẩm (Cloudinary / HTTPS)"
+                                                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                         FontSize="11" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
 
                                     <CheckBox Content="Đang kinh doanh (Hiển thị trên menu gọi món)"
                                               IsChecked="{Binding FormProductIsActive, Mode=TwoWay}"

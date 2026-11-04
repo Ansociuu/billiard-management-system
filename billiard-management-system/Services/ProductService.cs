@@ -26,10 +26,12 @@ namespace billiard_management_system.Services
     public class ProductService : IProductService
     {
         private readonly IAuditLogService _auditLogService;
+        private readonly ICloudinaryService _cloudinaryService;
 
-        public ProductService(IAuditLogService auditLogService = null)
+        public ProductService(IAuditLogService auditLogService = null, ICloudinaryService cloudinaryService = null)
         {
             _auditLogService = auditLogService ?? new AuditLogService();
+            _cloudinaryService = cloudinaryService ?? new CloudinaryService();
         }
 
         public async Task<List<ProductCategory>> GetCategoriesAsync(bool includeInactive = false)
@@ -277,7 +279,7 @@ namespace billiard_management_system.Services
                 return (false, deniedMsg, 0);
             }
 
-            // Kiểm tra tên, đơn vị và giá bán
+            // Kiểm tra tên, đơn vị, giá bán và đường dẫn ảnh
             var (valid, validationMsg) = ValidateProductInput(product);
             if (!valid)
             {
@@ -457,6 +459,15 @@ namespace billiard_management_system.Services
             if (product.Price < 0)
             {
                 return (false, "Giá bán sản phẩm không được phép là số âm!");
+            }
+
+            if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+            {
+                var urlCheck = _cloudinaryService.ValidateImageUrl(product.ImageUrl);
+                if (!urlCheck.Valid)
+                {
+                    return urlCheck;
+                }
             }
 
             return (true, string.Empty);
