@@ -141,16 +141,29 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- TOP HEADER -->
+            <!-- TOP HEADER: THÔNG TIN NGƯỜI DÙNG, THỜI LƯỢNG CA TRỰC & ĐỒNG HỒ -->
             <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="24,0">
                 <Grid VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="Xin chào, " FontSize="16" Foreground="#64748B" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding CurrentUserFullName}" FontSize="16" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                        <Border Margin="12,0,0,0" Padding="8,3" CornerRadius="12" Background="#E0F2FE" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CurrentUserRole}" FontSize="11" FontWeight="Bold" Foreground="#0284C7" />
+                        </Border>
                     </StackPanel>
 
                     <!-- Đồng hồ thời gian thực & Ca làm việc -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <!-- Thời lượng ca trực -->
+                        <Border Background="#F1F5F9" CornerRadius="16" Padding="12,5" Margin="0,0,12,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="TimerSand" Width="14" Height="14" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Thời lượng ca: " FontSize="12" Foreground="#64748B" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SessionDurationString}" FontSize="12" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Đồng hồ hệ thống -->
                         <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="14,6">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ClockOutline" Width="16" Height="16" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
