@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using billiard_management_system.Helpers;
 using billiard_management_system.Models;
@@ -12,6 +13,10 @@ namespace billiard_management_system.Services
         Task<(bool Success, string Message, User User)> LoginAsync(string username, string password);
         Task LogoutAsync(long? userId = null);
         Task<List<string>> GetUserPermissionsAsync(int roleId);
+        Task<List<Role>> GetAllRolesAsync();
+        Task<List<Permission>> GetAllPermissionsAsync();
+        Task<HashSet<int>> GetRolePermissionIdsAsync(int roleId);
+        Task<(bool Success, string Message)> UpdateRolePermissionsAsync(int roleId, IEnumerable<int> permissionIds);
     }
 
     public class AuthService : IAuthService
@@ -145,6 +150,130 @@ namespace billiard_management_system.Services
             using (var conn = await DatabaseHelper.OpenConnectionAsync())
             {
                 return await GetUserPermissionsInternalAsync(conn, roleId);
+            }
+        }
+
+        public async Task<List<Role>> GetAllRolesAsync()
+        {
+            var roles = new List<Role>();
+            using (var conn = await DatabaseHelper.OpenConnectionAsync())
+            {
+                const string sql = "SELECT RoleId, RoleName, Description FROM Roles ORDER BY RoleId ASC;";
+                using (var cmd = new MySqlCommand(sql, conn))
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        roles.Add(new Role
+                        {
+                            RoleId = reader.GetInt32("RoleId"),
+                            RoleName = reader.GetString("RoleName"),
+                            Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? null : reader.GetString("Description")
+                        });
+                    }
+                }
+            }
+            return roles;
+        }
+
+        public async Task<List<Permission>> GetAllPermissionsAsync()
+        {
+            var perms = new List<Permission>();
+            using (var conn = await DatabaseHelper.OpenConnectionAsync())
+            {
+                const string sql = "SELECT PermissionId, PermissionCode, PermissionName, Description FROM Permissions ORDER BY PermissionId ASC;";
+                using (var cmd = new MySqlCommand(sql, conn))
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        perms.Add(new Permission
+                        {
+                            PermissionId = reader.GetInt32("PermissionId"),
+                            PermissionCode = reader.GetString("PermissionCode"),
+                            PermissionName = reader.GetString("PermissionName"),
+                            Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? null : reader.GetString("Description")
+                        });
+                    }
+                }
+            }
+            return perms;
+        }
+
+        public async Task<HashSet<int>> GetRolePermissionIdsAsync(int roleId)
+        {
+            var ids = new HashSet<int>();
+            using (var conn = await DatabaseHelper.OpenConnectionAsync())
+            {
+                const string sql = "SELECT PermissionId FROM RolePermissions WHERE RoleId = @RoleId;";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@RoleId", roleId);
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            ids.Add(reader.GetInt32("PermissionId"));
+                        }
+                    }
+                }
+            }
+            return ids;
+        }
+
+        public async Task<(bool Success, string Message)> UpdateRolePermissionsAsync(int roleId, IEnumerable<int> permissionIds)
+        {
+            // Kiểm tra quyền quản lý phân quyền (ROLE_MANAGE) ở tầng nghiệp vụ
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.RoleManage, "Cập nhật phân quyền cho vai trò");
+            if (!allowed)
+            {
+                await _auditLogService.LogAsync(
+                    UserSession.CurrentUser?.UserId, "ACCESS_DENIED", "RolePermission", roleId, deniedMsg);
+                return (false, deniedMsg);
+            }
+
+            if (roleId == 1)
+            {
+                return (false, "Vai trò Quản trị viên (Admin) mặc định có toàn quyền hệ thống, không thể thu hồi quyền.");
+            }
+
+            var distinctIds = (permissionIds ?? Enumerable.Empty<int>()).Distinct().ToList();
+
+            try
+            {
+                using (var conn = await DatabaseHelper.OpenConnectionAsync())
+                using (var trans = await conn.BeginTransactionAsync())
+                {
+                    const string deleteSql = "DELETE FROM RolePermissions WHERE RoleId = @RoleId;";
+                    using (var cmdDel = new MySqlCommand(deleteSql, conn, trans))
+                    {
+                        cmdDel.Parameters.AddWithValue("@RoleId", roleId);
+                        await cmdDel.ExecuteNonQueryAsync();
+                    }
+
+                    const string insertSql = "INSERT INTO RolePermissions (RoleId, PermissionId) VALUES (@RoleId, @PermissionId);";
+                    foreach (var permId in distinctIds)
+                    {
+                        using (var cmdIns = new MySqlCommand(insertSql, conn, trans))
+                        {
+                            cmdIns.Parameters.AddWithValue("@RoleId", roleId);
+                            cmdIns.Parameters.AddWithValue("@PermissionId", permId);
+                            await cmdIns.ExecuteNonQueryAsync();
+                        }
+                    }
+
+                    await trans.CommitAsync();
+                }
+
+                await _auditLogService.LogAsync(
+                    UserSession.CurrentUser?.UserId, "UPDATE_ROLE_PERMISSIONS", "Role", roleId,
+                    $"Cập nhật danh sách quyền cho RoleId={roleId}: [{string.Join(", ", distinctIds)}]");
+
+                return (true, "Cập nhật phân quyền cho vai trò thành công!");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Lỗi cập nhật phân quyền: {ex.Message}");
             }
         }
 

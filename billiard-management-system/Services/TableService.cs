@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Threading.Tasks;
+using billiard_management_system.Helpers;
 using billiard_management_system.Models;
 using MySqlConnector;
 
@@ -18,8 +18,20 @@ namespace billiard_management_system.Services
 
     public class TableService : ITableService
     {
+        private readonly IAuditLogService _auditLogService;
+
+        public TableService(IAuditLogService auditLogService = null)
+        {
+            _auditLogService = auditLogService ?? new AuditLogService();
+        }
+
         public async Task<List<BilliardTable>> GetAllTablesAsync()
         {
+            if (UserSession.IsLoggedIn)
+            {
+                UserSession.DemandPermission(PermissionCodes.TableView, "Xem danh sách bàn");
+            }
+
             var tables = new List<BilliardTable>();
 
             using (var conn = await DatabaseHelper.OpenConnectionAsync())
@@ -113,6 +125,14 @@ namespace billiard_management_system.Services
 
         public async Task<(bool Success, string Message, long SessionId)> StartSessionAsync(int tableId, long userId, long? customerId = null)
         {
+            // Kiểm tra quyền mở phiên chơi (SESSION_OPEN) ở tầng nghiệp vụ
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Mở phiên chơi");
+            if (!allowed)
+            {
+                await _auditLogService.LogAsync(userId, "ACCESS_DENIED", "Table", tableId, deniedMsg);
+                return (false, deniedMsg, 0);
+            }
+
             try
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
@@ -166,6 +186,13 @@ namespace billiard_management_system.Services
 
         public async Task<(bool Success, string Message)> SwitchTableAsync(long sessionId, int currentTableId, int newTableId)
         {
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Chuyển bàn chơi");
+            if (!allowed)
+            {
+                await _auditLogService.LogAsync(UserSession.CurrentUser?.UserId, "ACCESS_DENIED", "Session", sessionId, deniedMsg);
+                return (false, deniedMsg);
+            }
+
             try
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
@@ -221,6 +248,13 @@ namespace billiard_management_system.Services
 
         public async Task<(bool Success, string Message)> UpdateTableStatusAsync(int tableId, string newStatus)
         {
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Cập nhật trạng thái bàn");
+            if (!allowed)
+            {
+                await _auditLogService.LogAsync(UserSession.CurrentUser?.UserId, "ACCESS_DENIED", "Table", tableId, deniedMsg);
+                return (false, deniedMsg);
+            }
+
             try
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
@@ -242,4 +276,3 @@ namespace billiard_management_system.Services
         }
     }
 }
-

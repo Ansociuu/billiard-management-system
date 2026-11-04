@@ -11,25 +11,35 @@ namespace billiard_management_system.ViewModels
     public class MainViewModel : BaseViewModel
     {
         private readonly IAuthService _authService;
+        private readonly IAuditLogService _auditLogService;
         private BaseViewModel _currentViewModel;
         private string _activeMenu = "Tables";
         private string _currentTimeString;
         private string _sessionDurationString = "00:00:00";
         private string _notificationMessage;
-        private string _notificationType = "Info"; // "Info", "Success", "Error"
+        private string _notificationType = "Info"; // "Info", "Success", "Error", "Warning"
         private bool _isNotificationVisible;
         private readonly DispatcherTimer _clockTimer;
         private readonly DispatcherTimer _notificationTimer;
 
         public event Action LogoutRequested;
 
-        public MainViewModel(IAuthService authService = null)
+        public MainViewModel(IAuthService authService = null, IAuditLogService auditLogService = null)
         {
             _authService = authService ?? new AuthService();
+            _auditLogService = auditLogService ?? new AuditLogService();
             Title = "Hệ Thống Quản Lý Quán Billiard Chuyên Nghiệp";
 
             // Khởi tạo các ViewModel con
             TableManagementVM = new TableManagementViewModel();
+            TableManagementVM.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(BaseViewModel.ErrorMessage) && !string.IsNullOrWhiteSpace(TableManagementVM.ErrorMessage))
+                {
+                    ShowNotification(TableManagementVM.ErrorMessage, "Error");
+                }
+            };
+
             ProductsVM = new MenuPlaceholderViewModel("Quản lý Dịch vụ", "FoodForkDrink", "Theo dõi danh mục sản phẩm, đồ uống, món ăn phục vụ tại quán.");
             InvoicesVM = new MenuPlaceholderViewModel("Hóa đơn & Tra cứu Thu ngân", "ReceiptTextOutline", "Xem lại lịch sử phiên chơi, chi tiết hóa đơn thanh toán và đối soát ca trực.");
             ReportsVM = new MenuPlaceholderViewModel("Báo cáo Doanh thu & Thống kê", "ChartBar", "Biểu đồ thống kê doanh số theo ngày, tuần, tháng và công suất khai thác bàn.");
@@ -39,30 +49,49 @@ namespace billiard_management_system.ViewModels
             CurrentViewModel = TableManagementVM;
             ActiveMenu = "Tables";
 
-            // Khởi tạo Navigation Commands
+            // Khởi tạo Navigation Commands có kiểm tra phân quyền RBAC
             NavigateToTablesCommand = new RelayCommand(() =>
             {
+                var (allowed, msg) = UserSession.CheckAccess(PermissionCodes.TableView, "Truy cập Sơ đồ bàn chơi");
+                if (!allowed)
+                {
+                    HandleAccessDenied("Navigation.Tables", msg);
+                    return;
+                }
                 CurrentViewModel = TableManagementVM;
                 ActiveMenu = "Tables";
             });
 
             NavigateToProductsCommand = new RelayCommand(() =>
             {
+                var (allowed, msg) = UserSession.CheckAccess(PermissionCodes.ProductManage, "Truy cập Quản lý Dịch vụ & Sản phẩm");
+                if (!allowed)
+                {
+                    HandleAccessDenied("Navigation.Products", msg);
+                    return;
+                }
                 CurrentViewModel = ProductsVM;
                 ActiveMenu = "Products";
             });
 
             NavigateToInvoicesCommand = new RelayCommand(() =>
             {
+                var (allowed, msg) = UserSession.CheckAccess(PermissionCodes.InvoicePay, "Truy cập Hóa đơn & Thu ngân");
+                if (!allowed)
+                {
+                    HandleAccessDenied("Navigation.Invoices", msg);
+                    return;
+                }
                 CurrentViewModel = InvoicesVM;
                 ActiveMenu = "Invoices";
             });
 
             NavigateToReportsCommand = new RelayCommand(() =>
             {
-                if (!CanAccessReports)
+                var (allowed, msg) = UserSession.CheckAccess(PermissionCodes.ReportView, "Truy cập Báo cáo Doanh thu");
+                if (!allowed)
                 {
-                    ShowNotification("Chỉ Quản trị viên (Admin) mới có quyền truy cập Báo cáo!", "Error");
+                    HandleAccessDenied("Navigation.Reports", msg);
                     return;
                 }
                 CurrentViewModel = ReportsVM;
@@ -71,9 +100,10 @@ namespace billiard_management_system.ViewModels
 
             NavigateToStaffCommand = new RelayCommand(() =>
             {
-                if (!CanAccessStaff)
+                var (allowed, msg) = UserSession.CheckAccess(PermissionCodes.UserManage, "Truy cập Quản lý Nhân viên & Phân quyền");
+                if (!allowed)
                 {
-                    ShowNotification("Chỉ Quản trị viên (Admin) mới có quyền Quản lý Nhân sự!", "Error");
+                    HandleAccessDenied("Navigation.Staff", msg);
                     return;
                 }
                 CurrentViewModel = StaffVM;
@@ -105,10 +135,10 @@ namespace billiard_management_system.ViewModels
         }
 
         public TableManagementViewModel TableManagementVM { get; }
-        public MenuPlaceholderViewModel ProductsVM { get; }
-        public MenuPlaceholderViewModel InvoicesVM { get; }
-        public MenuPlaceholderViewModel ReportsVM { get; }
-        public MenuPlaceholderViewModel StaffVM { get; }
+        public BaseViewModel ProductsVM { get; set; }
+        public BaseViewModel InvoicesVM { get; set; }
+        public BaseViewModel ReportsVM { get; set; }
+        public BaseViewModel StaffVM { get; set; }
 
         public BaseViewModel CurrentViewModel
         {
@@ -124,8 +154,8 @@ namespace billiard_management_system.ViewModels
 
         #region User & Session Info
 
-        public string CurrentUserFullName => UserSession.CurrentUser?.FullName ?? "Quản trị viên";
-        public string CurrentUserRole => UserSession.CurrentUser?.RoleName ?? "Admin";
+        public string CurrentUserFullName => UserSession.CurrentUser?.FullName ?? "Chưa đăng nhập";
+        public string CurrentUserRole => UserSession.CurrentUser?.RoleName ?? "Khách";
         public string CurrentUsername => UserSession.CurrentUser?.Username ?? string.Empty;
 
         public string LoginTimeFormatted => UserSession.LoginTime != default
@@ -150,10 +180,30 @@ namespace billiard_management_system.ViewModels
 
         // Phân quyền hiển thị Menu theo RBAC
         public bool IsAdmin => UserSession.IsAdmin;
-        public bool CanAccessReports => UserSession.HasPermission("REPORT_VIEW");
-        public bool CanAccessStaff => UserSession.HasPermission("USER_MANAGE");
-        public bool CanAccessProducts => UserSession.HasPermission("PRODUCT_MANAGE");
-        public bool CanAccessInvoices => UserSession.HasPermission("INVOICE_PAY");
+        public bool IsStaff => UserSession.IsStaff;
+        public bool CanAccessTables => UserSession.HasPermission(PermissionCodes.TableView);
+        public bool CanAccessProducts => UserSession.HasPermission(PermissionCodes.ProductManage);
+        public bool CanAccessInvoices => UserSession.HasPermission(PermissionCodes.InvoicePay);
+        public bool CanAccessReports => UserSession.HasPermission(PermissionCodes.ReportView);
+        public bool CanAccessStaff => UserSession.HasPermission(PermissionCodes.UserManage);
+
+        public void RefreshPermissionBindings()
+        {
+            OnPropertyChanged(nameof(IsAdmin));
+            OnPropertyChanged(nameof(IsStaff));
+            OnPropertyChanged(nameof(CanAccessTables));
+            OnPropertyChanged(nameof(CanAccessProducts));
+            OnPropertyChanged(nameof(CanAccessInvoices));
+            OnPropertyChanged(nameof(CanAccessReports));
+            OnPropertyChanged(nameof(CanAccessStaff));
+        }
+
+        private async void HandleAccessDenied(string resourceName, string message)
+        {
+            ShowNotification(message, "Error");
+            await _auditLogService.LogAsync(
+                UserSession.CurrentUser?.UserId, "ACCESS_DENIED", resourceName, null, message);
+        }
 
         #endregion
 

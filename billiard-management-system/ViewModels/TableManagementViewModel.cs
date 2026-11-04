@@ -113,6 +113,10 @@ namespace billiard_management_system.ViewModels
         public bool CanStartSession => _selectedTable != null && _selectedTable.IsAvailable;
         public bool CanCheckout => _selectedTable != null && _selectedTable.IsOccupied;
 
+        // Quyền RBAC cho các thao tác trên bàn
+        public bool HasOpenSessionPermission => UserSession.HasPermission(PermissionCodes.SessionOpen);
+        public bool HasCheckoutPermission => UserSession.HasPermission(PermissionCodes.SessionClose) && UserSession.HasPermission(PermissionCodes.InvoicePay);
+
         public decimal CurrentTableAmount
         {
             get => _currentTableAmount;
@@ -283,6 +287,13 @@ namespace billiard_management_system.ViewModels
         {
             if (SelectedTable == null || !SelectedTable.IsAvailable) return;
 
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Mở bàn chơi");
+            if (!allowed)
+            {
+                ErrorMessage = deniedMsg;
+                return;
+            }
+
             long userId = UserSession.CurrentUser?.UserId ?? 1;
             var (success, msg, sessionId) = await _tableService.StartSessionAsync(SelectedTable.TableId, userId);
 
@@ -300,6 +311,13 @@ namespace billiard_management_system.ViewModels
         private async void OnAddProductAsync(Product product)
         {
             if (product == null || SelectedTable == null || SelectedTable.CurrentSession == null) return;
+
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Thêm dịch vụ vào bàn");
+            if (!allowed)
+            {
+                ErrorMessage = deniedMsg;
+                return;
+            }
 
             var (success, msg) = await _productService.AddProductToSessionAsync(
                 SelectedTable.CurrentSession.SessionId, product.ProductId, 1, product.Price);
@@ -320,6 +338,13 @@ namespace billiard_management_system.ViewModels
         {
             if (sessionProduct == null || SelectedTable == null || SelectedTable.CurrentSession == null) return;
 
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Xóa dịch vụ khỏi bàn");
+            if (!allowed)
+            {
+                ErrorMessage = deniedMsg;
+                return;
+            }
+
             var (success, msg) = await _productService.RemoveProductFromSessionAsync(sessionProduct.SessionProductId);
             if (success)
             {
@@ -335,6 +360,20 @@ namespace billiard_management_system.ViewModels
         private async Task OnCheckoutAsync()
         {
             if (SelectedTable == null || !SelectedTable.IsOccupied || SelectedTable.CurrentSession == null) return;
+
+            var (canClose, closeDeniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionClose, "Kết thúc phiên chơi");
+            if (!canClose)
+            {
+                ErrorMessage = closeDeniedMsg;
+                return;
+            }
+
+            var (canPay, payDeniedMsg) = UserSession.CheckAccess(PermissionCodes.InvoicePay, "Thanh toán hóa đơn");
+            if (!canPay)
+            {
+                ErrorMessage = payDeniedMsg;
+                return;
+            }
 
             long userId = UserSession.CurrentUser?.UserId ?? 1;
             var (success, invoiceCode, msg) = await _orderService.CheckoutAsync(

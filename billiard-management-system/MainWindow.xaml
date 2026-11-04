@@ -43,12 +43,13 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- MENU NAVIGATION BUTTONS -->
+                <!-- MENU NAVIGATION BUTTONS (Hiển thị theo phân quyền RBAC) -->
                 <StackPanel Grid.Row="1" Margin="12,0">
-                    <!-- Mục 1: Sơ đồ bàn -->
+                    <!-- Mục 1: Sơ đồ bàn (TABLE_VIEW) -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             Command="{Binding NavigateToTablesCommand}"
                             Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Tables}"
+                            Visibility="{Binding CanAccessTables, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
@@ -57,10 +58,11 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Mục 2: Dịch vụ -->
+                    <!-- Mục 2: Dịch vụ (PRODUCT_MANAGE) -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             Command="{Binding NavigateToProductsCommand}"
                             Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Products}"
+                            Visibility="{Binding CanAccessProducts, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
@@ -69,10 +71,11 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Mục 3: Hóa đơn -->
+                    <!-- Mục 3: Hóa đơn (INVOICE_PAY) -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             Command="{Binding NavigateToInvoicesCommand}"
                             Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Invoices}"
+                            Visibility="{Binding CanAccessInvoices, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Height="44" HorizontalContentAlignment="Left" Padding="14,0" Margin="0,0,0,6"
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
@@ -81,7 +84,7 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Mục 4: Báo cáo (Chỉ hiển thị cho người có quyền xem báo cáo) -->
+                    <!-- Mục 4: Báo cáo (REPORT_VIEW) -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             Command="{Binding NavigateToReportsCommand}"
                             Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Reports}"
@@ -94,7 +97,7 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Mục 5: Quản trị Nhân viên (Chỉ Admin) -->
+                    <!-- Mục 5: Quản trị Nhân viên (USER_MANAGE) -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             Command="{Binding NavigateToStaffCommand}"
                             Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Staff}"
