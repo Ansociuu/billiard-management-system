@@ -57,6 +57,7 @@ namespace billiard_management_system.Models
                 {
                     OnPropertyChanged(nameof(IsAvailable));
                     OnPropertyChanged(nameof(IsOccupied));
+                    OnPropertyChanged(nameof(IsMaintenance));
                     OnPropertyChanged(nameof(StatusDisplayName));
                 }
             }
@@ -65,7 +66,13 @@ namespace billiard_management_system.Models
         public bool IsActive
         {
             get => _isActive;
-            set => SetProperty(ref _isActive, value);
+            set
+            {
+                if (SetProperty(ref _isActive, value))
+                {
+                    OnPropertyChanged(nameof(ActiveDisplayName));
+                }
+            }
         }
 
         public string TypeName
@@ -116,6 +123,8 @@ namespace billiard_management_system.Models
             }
         }
 
+        public string ActiveDisplayName => IsActive ? "Đang sử dụng" : "Ngừng sử dụng";
+
         /// <summary>
         /// Cập nhật thời gian đã chơi của phiên hiện tại
         /// </summary>
@@ -132,4 +141,3 @@ namespace billiard_management_system.Models
         }
     }
 }
-
