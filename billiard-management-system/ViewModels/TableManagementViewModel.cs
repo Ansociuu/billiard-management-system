@@ -36,6 +36,10 @@ namespace billiard_management_system.ViewModels
         private int? _selectedTypeId;
         private string _statusFilter = "All";
 
+        // Thông tin khách hàng khi mở phiên chơi mới (Issue #16)
+        private string _openCustomerName = string.Empty;
+        private string _openCustomerPhone = string.Empty;
+
         // Current Billing stats for selected table
         private decimal _currentTableAmount;
         private decimal _currentServiceAmount;
@@ -105,6 +109,7 @@ namespace billiard_management_system.ViewModels
             FilterTypeCommand = new RelayCommand<object>(OnFilterType);
             FilterStatusCommand = new RelayCommand<string>(OnFilterStatus);
             StartSessionCommand = new AsyncRelayCommand(OnStartSessionAsync, () => SelectedTable != null && SelectedTable.IsAvailable);
+            CancelSessionCommand = new AsyncRelayCommand(OnCancelSessionAsync, () => SelectedTable != null && SelectedTable.IsOccupied);
             SwitchTableCommand = new AsyncRelayCommand(OnSwitchTableAsync);
             SetMaintenanceCommand = new AsyncRelayCommand(() => OnChangeSelectedTableStatusAsync("Maintenance"));
             SetAvailableFromMaintenanceCommand = new AsyncRelayCommand(() => OnChangeSelectedTableStatusAsync("Available"));
@@ -205,6 +210,18 @@ namespace billiard_management_system.ViewModels
         {
             get => _targetSwitchTable;
             set => SetProperty(ref _targetSwitchTable, value);
+        }
+
+        public string OpenCustomerName
+        {
+            get => _openCustomerName;
+            set => SetProperty(ref _openCustomerName, value);
+        }
+
+        public string OpenCustomerPhone
+        {
+            get => _openCustomerPhone;
+            set => SetProperty(ref _openCustomerPhone, value);
         }
 
         public bool HasSelectedTable => _selectedTable != null;
@@ -589,6 +606,7 @@ namespace billiard_management_system.ViewModels
         public ICommand FilterTypeCommand { get; }
         public ICommand FilterStatusCommand { get; }
         public ICommand StartSessionCommand { get; }
+        public ICommand CancelSessionCommand { get; }
         public ICommand SwitchTableCommand { get; }
         public ICommand SetMaintenanceCommand { get; }
         public ICommand SetAvailableFromMaintenanceCommand { get; }
@@ -777,7 +795,47 @@ namespace billiard_management_system.ViewModels
 
             int targetTableId = SelectedTable.TableId;
             long userId = UserSession.CurrentUser?.UserId ?? 1;
-            var (success, msg, sessionId) = await _tableService.StartSessionAsync(targetTableId, userId);
+            var (success, msg, sessionId) = await _tableService.StartSessionAsync(
+                targetTableId, userId, null, OpenCustomerName, OpenCustomerPhone);
+
+            if (success)
+            {
+                OpenCustomerName = string.Empty;
+                OpenCustomerPhone = string.Empty;
+                Notify(msg, "Success");
+                await LoadDataAsync();
+                SelectedTable = _allTables.FirstOrDefault(t => t.TableId == targetTableId);
+            }
+            else
+            {
+                ErrorMessage = msg;
+                Notify(msg, "Error");
+            }
+        }
+
+        private async Task OnCancelSessionAsync()
+        {
+            if (SelectedTable == null || !SelectedTable.IsOccupied || SelectedTable.CurrentSession == null) return;
+
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionClose, "Hủy / kết thúc phiên chơi");
+            if (!allowed)
+            {
+                ErrorMessage = deniedMsg;
+                Notify(deniedMsg, "Error");
+                return;
+            }
+
+            var confirm = MessageBox.Show(
+                $"Bạn có chắc chắn muốn hủy phiên chơi #{SelectedTable.CurrentSession.SessionId} của bàn [{SelectedTable.TableNumber}] và trả bàn về trạng thái Trống không?",
+                "Xác nhận hủy phiên chơi",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirm != MessageBoxResult.Yes) return;
+
+            int targetTableId = SelectedTable.TableId;
+            long sessionId = SelectedTable.CurrentSession.SessionId;
+            var (success, msg) = await _tableService.EndSessionAsync(sessionId, targetTableId, 0m, isCancelled: true);
 
             if (success)
             {
@@ -788,6 +846,7 @@ namespace billiard_management_system.ViewModels
             else
             {
                 ErrorMessage = msg;
+                Notify(msg, "Error");
             }
         }
 
@@ -1162,14 +1221,12 @@ namespace billiard_management_system.ViewModels
             if (IsBusy) return;
             ClearError();
 
-            // 1. Parse độ ưu tiên
             if (!int.TryParse(FormRulePriorityText?.Trim(), out int priority) || priority < 1)
             {
                 ErrorMessage = "Độ ưu tiên (Priority) phải là số nguyên dương (>= 1).";
                 return;
             }
 
-            // 2. Parse khung giờ nếu không phải cả ngày
             TimeSpan? startTime = null;
             TimeSpan? endTime = null;
             if (!FormRuleIsAllDay)
@@ -1190,7 +1247,6 @@ namespace billiard_management_system.ViewModels
                 endTime = parsedEnd;
             }
 
-            // 3. Parse giá giờ hoặc mức giảm khuyến mãi
             decimal? hourlyRate = null;
             string discountType = null;
             decimal? discountValue = null;
@@ -1330,10 +1386,12 @@ namespace billiard_management_system.ViewModels
 
             if (SelectedTable != null && SelectedTable.IsOccupied && SelectedTable.CurrentSession != null)
             {
-                CurrentDuration = DateTime.Now - SelectedTable.CurrentSession.StartTime;
+                var diff = DateTime.Now - SelectedTable.CurrentSession.StartTime;
+                CurrentDuration = diff > TimeSpan.Zero ? diff : TimeSpan.Zero;
                 if (SelectedTable.HourlyRate > 0)
                 {
-                    CurrentTableAmount = Math.Round((decimal)CurrentDuration.TotalHours * SelectedTable.HourlyRate, 0);
+                    double hours = Math.Max(1.0 / 60.0, CurrentDuration.TotalHours);
+                    CurrentTableAmount = Math.Round((decimal)hours * SelectedTable.HourlyRate, 0);
                     CurrentTotalAmount = CurrentTableAmount + CurrentServiceAmount;
                 }
             }

@@ -44,12 +44,29 @@ namespace billiard_management_system
         }
 
         /// <summary>
-        /// Mở kết nối bất đồng bộ
+        /// Mở kết nối bất đồng bộ và đồng bộ múi giờ phiên MySQL theo giờ địa phương (UTC+7)
+        /// để tránh lệch 7 tiếng khi MySQL Cloud chạy ở múi giờ UTC (+00:00).
         /// </summary>
         public static async Task<MySqlConnection> OpenConnectionAsync()
         {
             var conn = CreateConnection();
             await conn.OpenAsync();
+
+            try
+            {
+                TimeSpan offset = TimeZoneInfo.Local.GetUtcOffset(DateTime.Now);
+                string sign = offset >= TimeSpan.Zero ? "+" : "-";
+                string tzString = $"{sign}{offset:hh\\:mm}";
+                using (var tzCmd = new MySqlCommand($"SET time_zone = '{tzString}';", conn))
+                {
+                    await tzCmd.ExecuteNonQueryAsync();
+                }
+            }
+            catch
+            {
+                // Bỏ qua nếu server hạn chế quyền SET time_zone; ứng dụng vẫn truyền trực tiếp DateTime.Now qua tham số SQL
+            }
+
             return conn;
         }
 

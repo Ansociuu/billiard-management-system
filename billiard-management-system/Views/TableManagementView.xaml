@@ -244,14 +244,28 @@
                                 <!-- TRƯỜNG HỢP 1: BÀN TRỐNG (AVAILABLE) -->
                                 <StackPanel Grid.Row="1" VerticalAlignment="Center" 
                                             Visibility="{Binding CanStartSession, Converter={StaticResource BoolToVisConverter}}">
-                                    <materialDesign:PackIcon Kind="TableCheck" Width="64" Height="64" Foreground="#2E7D32" HorizontalAlignment="Center" Margin="0,0,0,16" />
+                                    <materialDesign:PackIcon Kind="TableCheck" Width="56" Height="56" Foreground="#2E7D32" HorizontalAlignment="Center" Margin="0,0,0,10" />
                                     <TextBlock Text="Bàn hiện đang sẵn sàng!" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B" HorizontalAlignment="Center" />
-                                    <TextBlock Text="Bấm nút bên dưới để mở bàn và bắt đầu tính giờ" Foreground="#64748B" FontSize="13" HorizontalAlignment="Center" Margin="0,4,0,24" />
+                                    <TextBlock Text="Nhập thông tin khách (tùy chọn) và bấm Mở Bàn" Foreground="#64748B" FontSize="12" HorizontalAlignment="Center" Margin="0,2,0,14" />
+
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <TextBox Text="{Binding OpenCustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                                     materialDesign:HintAssist.Hint="Tên khách hàng (Mặc định: Khách vãng lai)"
+                                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                     FontSize="12" Margin="0,0,0,8" />
+
+                                            <TextBox Text="{Binding OpenCustomerPhone, UpdateSourceTrigger=PropertyChanged}"
+                                                     materialDesign:HintAssist.Hint="Số điện thoại khách hàng (Tùy chọn)"
+                                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                     FontSize="12" />
+                                        </StackPanel>
+                                    </Border>
                                     
                                     <Button Command="{Binding StartSessionCommand}" 
                                             Style="{StaticResource MaterialDesignRaisedButton}" 
                                             Background="#00897B" BorderBrush="#00897B"
-                                            Height="48" FontSize="15" FontWeight="Bold" Margin="0,0,0,12">
+                                            Height="46" FontSize="14" FontWeight="Bold" Margin="0,0,0,10">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="PlayCircleOutline" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,8,0" />
                                             <TextBlock Text="MỞ BÀN (BẮT ĐẦU CHƠI)" VerticalAlignment="Center" />
@@ -261,9 +275,9 @@
                                     <Button Command="{Binding SetMaintenanceCommand}"
                                             Style="{StaticResource MaterialDesignOutlinedButton}"
                                             Foreground="#64748B" BorderBrush="#CBD5E1"
-                                            Height="38" FontSize="13">
+                                            Height="36" FontSize="12">
                                         <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="WrenchOutline" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <materialDesign:PackIcon Kind="WrenchOutline" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,6,0" />
                                             <TextBlock Text="Chuyển sang trạng thái Bảo trì" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
@@ -296,24 +310,49 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
-                                    <!-- ĐỒNG HỒ & TÍNH TIỀN GIỜ -->
-                                    <Border Grid.Row="0" Background="#F8FAFC" CornerRadius="8" Padding="12" Margin="0,0,0,8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="Thời gian chơi" FontSize="11" Foreground="#64748B" />
-                                                <TextBlock Text="{Binding CurrentDuration, Converter={StaticResource DurationConverter}}" 
-                                                           FontSize="20" FontWeight="Bold" Foreground="#DC2626" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                                                <TextBlock Text="Tiền giờ tạm tính" FontSize="11" Foreground="#64748B" HorizontalAlignment="Right" />
-                                                <TextBlock Text="{Binding CurrentTableAmount, Converter={StaticResource CurrencyConverter}}" 
-                                                           FontSize="18" FontWeight="Bold" Foreground="#00897B" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                        </Grid>
+                                    <!-- ĐỒNG HỒ, NHÂN VIÊN MỞ BÀN & TÍNH TIỀN GIỜ -->
+                                    <Border Grid.Row="0" Background="#F8FAFC" CornerRadius="8" Padding="10" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Thời gian chơi" FontSize="11" Foreground="#64748B" />
+                                                    <TextBlock Text="{Binding CurrentDuration, Converter={StaticResource DurationConverter}}" 
+                                                               FontSize="19" FontWeight="Bold" Foreground="#DC2626" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                    <TextBlock Text="Tiền giờ tạm tính" FontSize="11" Foreground="#64748B" HorizontalAlignment="Right" />
+                                                    <TextBlock Text="{Binding CurrentTableAmount, Converter={StaticResource CurrencyConverter}}" 
+                                                               FontSize="18" FontWeight="Bold" Foreground="#00897B" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Border BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="0,6,0,0" Padding="0,6,0,0">
+                                                <Grid>
+                                                    <StackPanel>
+                                                        <TextBlock FontSize="11" Foreground="#475569">
+                                                            <Run Text="Vào lúc: " />
+                                                            <Run Text="{Binding SelectedTable.CurrentSession.StartTime, StringFormat='{}{0:HH:mm dd/MM}'}" FontWeight="SemiBold" />
+                                                            <Run Text=" • NV: " />
+                                                            <Run Text="{Binding SelectedTable.CurrentSession.StaffName}" FontWeight="SemiBold" />
+                                                        </TextBlock>
+                                                        <TextBlock FontSize="11" Foreground="#64748B" Margin="0,2,0,0">
+                                                            <Run Text="Khách: " />
+                                                            <Run Text="{Binding SelectedTable.CurrentSession.CustomerName}" FontWeight="SemiBold" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+
+                                                    <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                            Command="{Binding CancelSessionCommand}"
+                                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                                            Foreground="#DC2626" Height="24" Padding="6,0" FontSize="11"
+                                                            Content="Hủy phiên" ToolTip="Hủy phiên chơi và trả bàn về trạng thái Trống" />
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
                                     </Border>
 
                                     <!-- CHUYỂN BÀN NHANH -->
