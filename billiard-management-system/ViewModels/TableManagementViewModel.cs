@@ -976,6 +976,18 @@ namespace billiard_management_system.ViewModels
         {
             if (SelectedTable == null) return;
 
+            string actionLabel = string.Equals(newStatus, "Maintenance", StringComparison.OrdinalIgnoreCase)
+                ? $"chuyển bàn [{SelectedTable.TableNumber}] sang trạng thái ĐANG BẢO TRÌ"
+                : $"hoàn tất bảo trì và đưa bàn [{SelectedTable.TableNumber}] về trạng thái BÀN TRỐNG";
+
+            var confirm = MessageBox.Show(
+                $"Bạn có chắc chắn muốn {actionLabel} không?",
+                "Xác nhận trạng thái vận hành bàn",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (confirm != MessageBoxResult.Yes) return;
+
             int targetTableId = SelectedTable.TableId;
             var (success, msg) = await _tableService.UpdateTableStatusAsync(targetTableId, newStatus);
             if (success)
@@ -987,6 +999,7 @@ namespace billiard_management_system.ViewModels
             else
             {
                 ErrorMessage = msg;
+                Notify(msg, "Error");
             }
         }
 
@@ -1099,18 +1112,29 @@ namespace billiard_management_system.ViewModels
             if (!allowed)
             {
                 ErrorMessage = deniedMsg;
+                Notify(deniedMsg, "Error");
                 return;
             }
+
+            var confirm = MessageBox.Show(
+                $"Bạn có chắc chắn muốn xóa món [{sessionProduct.ProductName}] (SL: {sessionProduct.Quantity} {sessionProduct.Unit}) khỏi bàn [{SelectedTable.TableNumber}] không?",
+                "Xác nhận xóa món khỏi phiên chơi",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (confirm != MessageBoxResult.Yes) return;
 
             var (success, msg) = await _productService.RemoveProductFromSessionAsync(sessionProduct.SessionProductId);
             if (success)
             {
                 CurrentSessionProducts.Remove(sessionProduct);
                 await UpdateSelectedTableBillingAsync();
+                Notify($"Đã xóa món [{sessionProduct.ProductName}] khỏi bàn [{SelectedTable.TableNumber}].", "Success");
             }
             else
             {
                 ErrorMessage = msg;
+                Notify(msg, "Error");
             }
         }
 

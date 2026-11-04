@@ -54,7 +54,7 @@
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ViewDashboardOutline" Width="20" Height="20" Foreground="#26A69A" Margin="0,0,14,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Sơ đồ Bàn chơi" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text="Sơ đồ &amp; Vận hành Bàn" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
@@ -67,7 +67,7 @@
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FoodForkDrink" Width="20" Height="20" Foreground="#FB923C" Margin="0,0,14,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Dịch vụ" FontSize="14" VerticalAlignment="Center" />
+                            <TextBlock Text="Dịch vụ &amp; Thực đơn" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
@@ -80,7 +80,7 @@
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ReceiptTextOutline" Width="20" Height="20" Foreground="#38BDF8" Margin="0,0,14,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Hóa đơn &amp; Thu ngân" FontSize="14" VerticalAlignment="Center" />
+                            <TextBlock Text="Hóa đơn &amp; Lịch sử Phiên" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
@@ -93,11 +93,11 @@
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ChartBar" Width="20" Height="20" Foreground="#A78BFA" Margin="0,0,14,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Báo cáo Doanh thu" FontSize="14" VerticalAlignment="Center" />
+                            <TextBlock Text="Báo cáo &amp; Thống kê" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <!-- Mục 5: Quản trị Nhân viên (USER_MANAGE) -->
+                    <!-- Mục 5: Quản trị Nhân viên & Hệ thống (USER_MANAGE) -->
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             Command="{Binding NavigateToStaffCommand}"
                             Background="{Binding ActiveMenu, Converter={StaticResource MenuActiveConverter}, ConverterParameter=Staff}"
@@ -106,7 +106,7 @@
                             Foreground="White">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="AccountGroupOutline" Width="20" Height="20" Foreground="#F472B6" Margin="0,0,14,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Quản lý Nhân viên" FontSize="14" VerticalAlignment="Center" />
+                            <TextBlock Text="Nhân sự &amp; Hệ thống" FontSize="14" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
