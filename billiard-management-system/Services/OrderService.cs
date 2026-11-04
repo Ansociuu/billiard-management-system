@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using billiard_management_system.Helpers;
 using billiard_management_system.Models;
 using MySqlConnector;
 
@@ -14,6 +15,13 @@ namespace billiard_management_system.Services
 
     public class OrderService : IOrderService
     {
+        private readonly IAuditLogService _auditLogService;
+
+        public OrderService(IAuditLogService auditLogService = null)
+        {
+            _auditLogService = auditLogService ?? new AuditLogService();
+        }
+
         public async Task<(decimal TableAmount, decimal ServiceAmount, decimal TotalAmount, TimeSpan Duration)> CalculateSessionBillingAsync(long sessionId)
         {
             decimal tableAmount = 0;
@@ -76,6 +84,21 @@ namespace billiard_management_system.Services
         public async Task<(bool Success, string InvoiceCode, string Message)> CheckoutAsync(
             long sessionId, int tableId, long userId, decimal discountAmount, string paymentMethod)
         {
+            // Kiểm tra quyền kết thúc phiên (SESSION_CLOSE) và thanh toán hóa đơn (INVOICE_PAY)
+            var (canClose, closeDeniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionClose, "Kết thúc phiên chơi");
+            if (!canClose)
+            {
+                await _auditLogService.LogAsync(userId, "ACCESS_DENIED", "Session", sessionId, closeDeniedMsg);
+                return (false, string.Empty, closeDeniedMsg);
+            }
+
+            var (canPay, payDeniedMsg) = UserSession.CheckAccess(PermissionCodes.InvoicePay, "Thanh toán hóa đơn");
+            if (!canPay)
+            {
+                await _auditLogService.LogAsync(userId, "ACCESS_DENIED", "Invoice", sessionId, payDeniedMsg);
+                return (false, string.Empty, payDeniedMsg);
+            }
+
             try
             {
                 // Tính toán số tiền
@@ -168,4 +191,3 @@ namespace billiard_management_system.Services
         }
     }
 }
-

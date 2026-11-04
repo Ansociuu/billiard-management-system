@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using billiard_management_system.Helpers;
 using billiard_management_system.Models;
 using MySqlConnector;
 
@@ -17,6 +18,13 @@ namespace billiard_management_system.Services
 
     public class ProductService : IProductService
     {
+        private readonly IAuditLogService _auditLogService;
+
+        public ProductService(IAuditLogService auditLogService = null)
+        {
+            _auditLogService = auditLogService ?? new AuditLogService();
+        }
+
         public async Task<List<ProductCategory>> GetCategoriesAsync()
         {
             var list = new List<ProductCategory>();
@@ -129,6 +137,14 @@ namespace billiard_management_system.Services
 
         public async Task<(bool Success, string Message)> AddProductToSessionAsync(long sessionId, int productId, int quantity, decimal unitPrice)
         {
+            // Kiểm tra quyền gọi món / vận hành phiên chơi ở tầng nghiệp vụ
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Thêm dịch vụ/sản phẩm vào phiên chơi");
+            if (!allowed)
+            {
+                await _auditLogService.LogAsync(UserSession.CurrentUser?.UserId, "ACCESS_DENIED", "SessionProduct", sessionId, deniedMsg);
+                return (false, deniedMsg);
+            }
+
             if (quantity <= 0) return (false, "Số lượng phải lớn hơn 0!");
 
             try
@@ -207,6 +223,13 @@ namespace billiard_management_system.Services
 
         public async Task<(bool Success, string Message)> RemoveProductFromSessionAsync(long sessionProductId)
         {
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Xóa dịch vụ/sản phẩm khỏi phiên chơi");
+            if (!allowed)
+            {
+                await _auditLogService.LogAsync(UserSession.CurrentUser?.UserId, "ACCESS_DENIED", "SessionProduct", sessionProductId, deniedMsg);
+                return (false, deniedMsg);
+            }
+
             try
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
@@ -227,4 +250,3 @@ namespace billiard_management_system.Services
         }
     }
 }
-
