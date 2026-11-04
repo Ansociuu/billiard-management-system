@@ -141,6 +141,7 @@
     <Compile Include="Services\UserService.cs" />
     <Compile Include="Services\TableService.cs" />
     <Compile Include="Services\ProductService.cs" />
+    <Compile Include="Services\CloudinaryService.cs" />
     <Compile Include="Services\OrderService.cs" />
     <Compile Include="ViewModels\BaseViewModel.cs" />
     <Compile Include="ViewModels\LoginViewModel.cs" />

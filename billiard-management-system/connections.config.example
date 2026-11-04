@@ -1,6 +1,10 @@
 <connectionStrings>
-    <!-- Mẫu cấu hình kết nối database. Hãy sao chép thành connections.config và điền thông tin thật -->
+    <!-- Mẫu cấu hình kết nối database & Cloudinary. Hãy sao chép thành connections.config và điền thông tin thật (file connections.config đã được .gitignore) -->
     <add name="BilliardDb" 
          connectionString="Server=YOUR_HOST;Port=YOUR_PORT;Database=defaultdb;User ID=YOUR_USER;Password=YOUR_PASSWORD;SslMode=Required;CharSet=utf8mb4;" 
          providerName="MySqlConnector" />
+
+    <!-- Cấu hình lưu trữ ảnh sản phẩm trên Cloudinary -->
+    <add name="Cloudinary"
+         connectionString="CloudName=YOUR_CLOUD_NAME;ApiKey=YOUR_API_KEY;ApiSecret=YOUR_API_SECRET;UploadPreset=YOUR_OPTIONAL_PRESET;" />
 </connectionStrings>

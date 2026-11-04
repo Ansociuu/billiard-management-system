@@ -19,6 +19,7 @@
             <converters:DurationConverter x:Key="DurationConverter" />
             <converters:MenuActiveConverter x:Key="MenuActiveConverter" />
             <converters:NotificationTypeToBrushConverter x:Key="NotificationTypeToBrushConverter" />
+            <converters:SafeImageUrlConverter x:Key="SafeImageUrlConverter" />
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
             <!-- DATA TEMPLATES: TỰ ĐỘNG BIND VIEW THEO VIEWMODEL -->

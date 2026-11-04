@@ -8,12 +8,14 @@ using System.Windows.Input;
 using billiard_management_system.Core;
 using billiard_management_system.Models;
 using billiard_management_system.Services;
+using Microsoft.Win32;
 
 namespace billiard_management_system.ViewModels
 {
     public class ProductManagementViewModel : BaseViewModel
     {
         private readonly IProductService _productService;
+        private readonly ICloudinaryService _cloudinaryService;
 
         private ObservableCollection<Product> _allProducts = new ObservableCollection<Product>();
         private ObservableCollection<Product> _filteredProducts = new ObservableCollection<Product>();
@@ -37,6 +39,7 @@ namespace billiard_management_system.ViewModels
         private string _formPriceText = "15000";
         private string _formImageUrl = string.Empty;
         private bool _formProductIsActive = true;
+        private bool _isUploadingImage;
 
         // Form Danh mục (CRUD ProductCategories)
         private bool _isCategoryEditMode;
@@ -47,9 +50,10 @@ namespace billiard_management_system.ViewModels
 
         public event Action<string, string> NotificationRequested;
 
-        public ProductManagementViewModel(IProductService productService = null)
+        public ProductManagementViewModel(IProductService productService = null, ICloudinaryService cloudinaryService = null)
         {
             _productService = productService ?? new ProductService();
+            _cloudinaryService = cloudinaryService ?? new CloudinaryService();
             Title = "Quản lý Danh mục & Sản phẩm Dịch vụ";
 
             RefreshCommand = new AsyncRelayCommand(LoadDataAsync);
@@ -59,6 +63,8 @@ namespace billiard_management_system.ViewModels
             PrepareNewProductCommand = new RelayCommand(ExecutePrepareNewProduct);
             SaveProductCommand = new AsyncRelayCommand(ExecuteSaveProductAsync);
             ToggleProductActiveCommand = new AsyncRelayCommand(ExecuteToggleProductActiveAsync);
+            SelectAndUploadImageCommand = new AsyncRelayCommand(ExecuteSelectAndUploadImageAsync);
+            ClearImageCommand = new RelayCommand(() => FormImageUrl = string.Empty);
 
             PrepareNewCategoryCommand = new RelayCommand(ExecutePrepareNewCategory);
             SaveCategoryCommand = new AsyncRelayCommand(ExecuteSaveCategoryAsync);
@@ -185,6 +191,20 @@ namespace billiard_management_system.ViewModels
 
         public bool HasFormImageUrl => !string.IsNullOrWhiteSpace(_formImageUrl);
 
+        public bool IsUploadingImage
+        {
+            get => _isUploadingImage;
+            set
+            {
+                if (SetProperty(ref _isUploadingImage, value))
+                {
+                    OnPropertyChanged(nameof(UploadButtonText));
+                }
+            }
+        }
+
+        public string UploadButtonText => IsUploadingImage ? "Đang tải lên Cloudinary..." : "Tải ảnh lên Cloudinary";
+
         public bool FormProductIsActive
         {
             get => _formProductIsActive;
@@ -266,6 +286,8 @@ namespace billiard_management_system.ViewModels
         public ICommand PrepareNewProductCommand { get; }
         public ICommand SaveProductCommand { get; }
         public ICommand ToggleProductActiveCommand { get; }
+        public ICommand SelectAndUploadImageCommand { get; }
+        public ICommand ClearImageCommand { get; }
 
         public ICommand PrepareNewCategoryCommand { get; }
         public ICommand SaveCategoryCommand { get; }
@@ -381,6 +403,45 @@ namespace billiard_management_system.ViewModels
             OnPropertyChanged(nameof(ProductFormTitle));
         }
 
+        private async Task ExecuteSelectAndUploadImageAsync()
+        {
+            if (IsUploadingImage) return;
+            ClearError();
+
+            var dlg = new OpenFileDialog
+            {
+                Title = "Chọn ảnh sản phẩm để tải lên Cloudinary",
+                Filter = "Tệp hình ảnh (*.jpg;*.jpeg;*.png;*.webp;*.gif;*.bmp)|*.jpg;*.jpeg;*.png;*.webp;*.gif;*.bmp"
+            };
+
+            if (dlg.ShowDialog() != true) return;
+
+            IsUploadingImage = true;
+            try
+            {
+                var (success, uploadedUrl, msg) = await _cloudinaryService.UploadProductImageAsync(dlg.FileName);
+                if (success && !string.IsNullOrWhiteSpace(uploadedUrl))
+                {
+                    FormImageUrl = uploadedUrl;
+                    Notify(msg, "Success");
+                }
+                else
+                {
+                    ErrorMessage = msg;
+                    Notify(msg, "Error");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Lỗi khi tải ảnh lên Cloudinary: {ex.Message}";
+                Notify(ErrorMessage, "Error");
+            }
+            finally
+            {
+                IsUploadingImage = false;
+            }
+        }
+
         private async Task ExecuteSaveProductAsync()
         {
             if (IsBusy) return;
@@ -399,6 +460,14 @@ namespace billiard_management_system.ViewModels
             {
                 ErrorMessage = "Giá bán sản phẩm không được phép là số âm!";
                 Notify(ErrorMessage, "Error");
+                return;
+            }
+
+            var (validUrl, urlMsg) = _cloudinaryService.ValidateImageUrl(FormImageUrl);
+            if (!validUrl)
+            {
+                ErrorMessage = urlMsg;
+                Notify(urlMsg, "Error");
                 return;
             }
 

@@ -1,8 +1,10 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace billiard_management_system.Helpers.Converters
 {
@@ -136,5 +138,55 @@ namespace billiard_management_system.Helpers.Converters
             throw new NotImplementedException();
         }
     }
-}
 
+    /// <summary>
+    /// Chuyển đổi chuỗi URL ảnh (Cloudinary / HTTP / File cục bộ) sang ImageSource an toàn,
+    /// tự động bắt lỗi nếu URL không hợp lệ hoặc không có mạng mà không làm crash giao diện.
+    /// </summary>
+    public class SafeImageUrlConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            string url = value as string;
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return null;
+            }
+
+            try
+            {
+                string cleanUrl = url.Trim();
+                Uri uri = null;
+
+                if (Uri.TryCreate(cleanUrl, UriKind.Absolute, out Uri parsedUri) &&
+                    (parsedUri.Scheme == Uri.UriSchemeHttp || parsedUri.Scheme == Uri.UriSchemeHttps || parsedUri.IsFile))
+                {
+                    uri = parsedUri;
+                }
+                else if (File.Exists(cleanUrl))
+                {
+                    uri = new Uri(Path.GetFullPath(cleanUrl), UriKind.Absolute);
+                }
+
+                if (uri == null) return null;
+
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = uri;
+                bitmap.CacheOption = BitmapCacheOption.OnDemand;
+                bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                bitmap.EndInit();
+                return bitmap;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
