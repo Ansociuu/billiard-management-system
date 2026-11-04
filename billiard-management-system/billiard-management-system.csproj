@@ -74,6 +74,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Views\StaffManagementView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\MenuPlaceholderView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -95,6 +99,10 @@
       <DependentUpon>TableManagementView.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Views\StaffManagementView.xaml.cs">
+      <DependentUpon>StaffManagementView.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Views\MenuPlaceholderView.xaml.cs">
       <DependentUpon>MenuPlaceholderView.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -105,6 +113,7 @@
     <Compile Include="Core\AsyncRelayCommand.cs" />
     <Compile Include="Models\Role.cs" />
     <Compile Include="Models\User.cs" />
+    <Compile Include="Models\Employee.cs" />
     <Compile Include="Models\Permission.cs" />
     <Compile Include="Models\TableType.cs" />
     <Compile Include="Models\BilliardTable.cs" />
@@ -121,12 +130,14 @@
     <Compile Include="Helpers\PasswordBoxHelper.cs" />
     <Compile Include="Helpers\Converters\Converters.cs" />
     <Compile Include="Services\AuthService.cs" />
+    <Compile Include="Services\UserService.cs" />
     <Compile Include="Services\TableService.cs" />
     <Compile Include="Services\ProductService.cs" />
     <Compile Include="Services\OrderService.cs" />
     <Compile Include="ViewModels\BaseViewModel.cs" />
     <Compile Include="ViewModels\LoginViewModel.cs" />
     <Compile Include="ViewModels\TableManagementViewModel.cs" />
+    <Compile Include="ViewModels\StaffManagementViewModel.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
   </ItemGroup>
   <ItemGroup>

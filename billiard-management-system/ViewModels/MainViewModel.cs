@@ -43,7 +43,17 @@ namespace billiard_management_system.ViewModels
             ProductsVM = new MenuPlaceholderViewModel("Quản lý Dịch vụ", "FoodForkDrink", "Theo dõi danh mục sản phẩm, đồ uống, món ăn phục vụ tại quán.");
             InvoicesVM = new MenuPlaceholderViewModel("Hóa đơn & Tra cứu Thu ngân", "ReceiptTextOutline", "Xem lại lịch sử phiên chơi, chi tiết hóa đơn thanh toán và đối soát ca trực.");
             ReportsVM = new MenuPlaceholderViewModel("Báo cáo Doanh thu & Thống kê", "ChartBar", "Biểu đồ thống kê doanh số theo ngày, tuần, tháng và công suất khai thác bàn.");
-            StaffVM = new MenuPlaceholderViewModel("Quản lý Nhân viên & Phân quyền", "AccountGroupOutline", "Danh sách nhân viên, thông tin tài khoản và cấu hình quyền truy cập hệ thống.");
+
+            if (CanAccessStaff)
+            {
+                var staffVm = new StaffManagementViewModel();
+                staffVm.NotificationRequested += ShowNotification;
+                StaffVM = staffVm;
+            }
+            else
+            {
+                StaffVM = new MenuPlaceholderViewModel("Quản lý Nhân viên & Phân quyền", "AccountGroupOutline", "Danh sách nhân viên, thông tin tài khoản và cấu hình quyền truy cập hệ thống.");
+            }
 
             // Mặc định màn hình đầu tiên là Sơ đồ bàn
             CurrentViewModel = TableManagementVM;
@@ -106,6 +116,14 @@ namespace billiard_management_system.ViewModels
                     HandleAccessDenied("Navigation.Staff", msg);
                     return;
                 }
+
+                if (!(StaffVM is StaffManagementViewModel))
+                {
+                    var staffVm = new StaffManagementViewModel();
+                    staffVm.NotificationRequested += ShowNotification;
+                    StaffVM = staffVm;
+                }
+
                 CurrentViewModel = StaffVM;
                 ActiveMenu = "Staff";
             });

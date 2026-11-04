@@ -321,6 +321,11 @@ INSERT INTO Users (UserId, RoleId, Username, PasswordHash, FullName, Phone, IsAc
 (1, 1, 'admin', '$2a$11$Dbk60mq8s9q5wnMsMq3vuOxHLYa2lxNtfQ3DDbZjGi5KDH8xqxh6i', 'Quản Trị Viên (Admin)', '0901234567', TRUE),
 (2, 2, 'staff01', '$2a$11$Dbk60mq8s9q5wnMsMq3vuOxHLYa2lxNtfQ3DDbZjGi5KDH8xqxh6i', 'Nhân Viên Ca 1', '0908765432', TRUE);
 
+-- 4b. Initial Employees (Hồ sơ nhân sự tương ứng với tài khoản)
+INSERT INTO Employees (EmployeeId, UserId, Email, Address, HireDate, Position, IsActive) VALUES
+(1, 1, 'admin@billiardpro.vn', 'Quận 1, TP. Hồ Chí Minh', '2026-01-01', 'Chủ quán / Quản lý', TRUE),
+(2, 2, 'staff01@billiardpro.vn', 'Quận Bình Thạnh, TP. Hồ Chí Minh', '2026-02-15', 'Nhân viên Thu ngân Ca 1', TRUE);
+
 -- 5. TableTypes
 INSERT INTO TableTypes (TableTypeId, TypeName, Description, IsActive) VALUES
 (1, 'Bàn Pool (Lỗ)', 'Bàn bida lỗ tiêu chuẩn 9 feet', TRUE),
