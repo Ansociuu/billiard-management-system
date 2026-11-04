@@ -50,6 +50,9 @@ namespace billiard_management_system.ViewModels
         private decimal _currentServiceAmount;
         private decimal _currentTotalAmount;
         private TimeSpan _currentDuration;
+        private string _checkoutDiscountAmountText = "0";
+        private string _selectedPaymentMethod = "Cash";
+        private bool _isProcessingPayment;
 
         // Form Quản lý Bàn (CRUD Tables)
         private BilliardTable _selectedManageTable;
@@ -126,7 +129,7 @@ namespace billiard_management_system.ViewModels
             DecreaseProductQuantityCommand = new RelayCommand<SessionProduct>(OnDecreaseProductQuantityAsync);
             RemoveProductCommand = new RelayCommand<SessionProduct>(OnRemoveProductAsync);
 
-            CheckoutCommand = new AsyncRelayCommand(OnCheckoutAsync, () => SelectedTable != null && SelectedTable.IsOccupied);
+            CheckoutCommand = new AsyncRelayCommand(OnCheckoutAsync, () => !IsProcessingPayment && SelectedTable != null && SelectedTable.IsOccupied);
 
             // Commands CRUD Bàn (Tables)
             PrepareNewTableCommand = new RelayCommand(ExecutePrepareNewTable);
@@ -278,7 +281,60 @@ namespace billiard_management_system.ViewModels
         public decimal CurrentTotalAmount
         {
             get => _currentTotalAmount;
-            set => SetProperty(ref _currentTotalAmount, value);
+            set
+            {
+                if (SetProperty(ref _currentTotalAmount, value))
+                {
+                    OnPropertyChanged(nameof(CheckoutFinalAmount));
+                }
+            }
+        }
+
+        public List<string> AllowedPaymentMethods { get; } = new List<string> { "Cash", "BankTransfer" };
+
+        public string SelectedPaymentMethod
+        {
+            get => _selectedPaymentMethod;
+            set => SetProperty(ref _selectedPaymentMethod, value);
+        }
+
+        public string CheckoutDiscountAmountText
+        {
+            get => _checkoutDiscountAmountText;
+            set
+            {
+                if (SetProperty(ref _checkoutDiscountAmountText, value))
+                {
+                    OnPropertyChanged(nameof(CheckoutDiscountAmount));
+                    OnPropertyChanged(nameof(CheckoutFinalAmount));
+                }
+            }
+        }
+
+        public decimal CheckoutDiscountAmount
+        {
+            get
+            {
+                if (decimal.TryParse(_checkoutDiscountAmountText?.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal d) && d >= 0)
+                {
+                    return Math.Min(_currentTotalAmount, d);
+                }
+                return 0m;
+            }
+        }
+
+        public decimal CheckoutFinalAmount => Math.Max(0m, _currentTotalAmount - CheckoutDiscountAmount);
+
+        public bool IsProcessingPayment
+        {
+            get => _isProcessingPayment;
+            set
+            {
+                if (SetProperty(ref _isProcessingPayment, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         public TimeSpan CurrentDuration
@@ -1060,12 +1116,14 @@ namespace billiard_management_system.ViewModels
 
         private async Task OnCheckoutAsync()
         {
+            if (IsProcessingPayment) return;
             if (SelectedTable == null || !SelectedTable.IsOccupied || SelectedTable.CurrentSession == null) return;
 
             var (canClose, closeDeniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionClose, "Kết thúc phiên chơi");
             if (!canClose)
             {
                 ErrorMessage = closeDeniedMsg;
+                Notify(closeDeniedMsg, "Error");
                 return;
             }
 
@@ -1073,23 +1131,83 @@ namespace billiard_management_system.ViewModels
             if (!canPay)
             {
                 ErrorMessage = payDeniedMsg;
+                Notify(payDeniedMsg, "Error");
                 return;
             }
 
-            int targetTableId = SelectedTable.TableId;
-            long userId = UserSession.CurrentUser?.UserId ?? 1;
-            var (success, invoiceCode, msg) = await _orderService.CheckoutAsync(
-                SelectedTable.CurrentSession.SessionId, targetTableId, userId, 0, "Cash");
-
-            if (success)
+            if (!string.IsNullOrWhiteSpace(CheckoutDiscountAmountText)
+                && (!decimal.TryParse(CheckoutDiscountAmountText.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal parsedDiscount) || parsedDiscount < 0))
             {
-                Notify(msg, "Success");
-                await LoadDataAsync();
-                SelectedTable = _allTables.FirstOrDefault(t => t.TableId == targetTableId);
+                ErrorMessage = "Số tiền giảm giá trên hóa đơn phải là số không âm!";
+                Notify(ErrorMessage, "Error");
+                return;
             }
-            else
+
+            IsProcessingPayment = true;
+            try
             {
-                ErrorMessage = msg;
+                await UpdateSelectedTableBillingAsync();
+
+                decimal discount = CheckoutDiscountAmount;
+                decimal finalToPay = CheckoutFinalAmount;
+                string methodCode = string.Equals(SelectedPaymentMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase)
+                    ? "BankTransfer"
+                    : "Cash";
+                string methodLabel = methodCode == "BankTransfer" ? "Chuyển khoản ngân hàng (BankTransfer)" : "Tiền mặt (Cash)";
+
+                string summaryText =
+                    $"XÁC NHẬN THANH TOÁN BÀN [{SelectedTable.TableNumber}]\n" +
+                    $"--------------------------------------------\n" +
+                    $"• Khách hàng: {SelectedTable.CurrentSession.CustomerName}\n" +
+                    $"• Thời lượng chơi: {(int)CurrentDuration.TotalHours:D2}h {CurrentDuration.Minutes:D2}p\n" +
+                    $"• Tiền giờ bàn: {CurrentTableAmount:N0} đ\n" +
+                    $"• Tiền dịch vụ (F&B): {CurrentServiceAmount:N0} đ\n" +
+                    $"• Giảm giá hóa đơn: -{discount:N0} đ\n" +
+                    $"• Phương thức TT: {methodLabel}\n" +
+                    $"--------------------------------------------\n" +
+                    $"TỔNG THANH TOÁN: {finalToPay:N0} VNĐ\n\n" +
+                    $"Bạn có xác nhận hoàn tất thanh toán và trả bàn không?";
+
+                var confirm = MessageBox.Show(
+                    summaryText,
+                    "Xác nhận thanh toán & hoàn tất hóa đơn",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                int targetTableId = SelectedTable.TableId;
+                long sessionId = SelectedTable.CurrentSession.SessionId;
+                long userId = UserSession.CurrentUser?.UserId ?? 1;
+
+                var (success, invoiceCode, msg) = await _orderService.CheckoutAsync(
+                    sessionId, targetTableId, userId, discount, methodCode);
+
+                if (success)
+                {
+                    CheckoutDiscountAmountText = "0";
+                    Notify(msg, "Success");
+                    MessageBox.Show(
+                        $"{msg}\n\n• Bàn: {SelectedTable.TableNumber}\n• Phương thức: {methodLabel}\n• Tổng đã thu: {finalToPay:N0} VNĐ",
+                        "Hoàn tất thanh toán",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+
+                    await LoadDataAsync();
+                    SelectedTable = _allTables.FirstOrDefault(t => t.TableId == targetTableId);
+                }
+                else
+                {
+                    ErrorMessage = msg;
+                    Notify(msg, "Error");
+                }
+            }
+            finally
+            {
+                IsProcessingPayment = false;
             }
         }
 
