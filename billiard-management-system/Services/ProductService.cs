@@ -362,6 +362,24 @@ namespace billiard_management_system.Services
 
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 {
+                    string oldValuesJson = null;
+                    const string selectOldSql = "SELECT ProductName, Unit, Price, IsActive FROM Products WHERE ProductId = @ProductId LIMIT 1;";
+                    using (var oldCmd = new MySqlCommand(selectOldSql, conn))
+                    {
+                        oldCmd.Parameters.AddWithValue("@ProductId", product.ProductId);
+                        using (var r = await oldCmd.ExecuteReaderAsync())
+                        {
+                            if (await r.ReadAsync())
+                            {
+                                string oldName = (r.GetString("ProductName") ?? string.Empty).Replace("\"", "\\\"");
+                                string oldUnit = (r.GetString("Unit") ?? string.Empty).Replace("\"", "\\\"");
+                                decimal oldPrice = r.GetDecimal("Price");
+                                bool oldActive = r.GetBoolean("IsActive");
+                                oldValuesJson = $"{{\"ProductName\":\"{oldName}\",\"Unit\":\"{oldUnit}\",\"Price\":{oldPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"IsActive\":{(oldActive ? "true" : "false")}}}";
+                            }
+                        }
+                    }
+
                     // Chỉ cập nhật bảng Products. Các dòng SessionProducts và InvoiceDetails cũ giữ nguyên UnitPrice tại thời điểm bán!
                     const string sql = @"
                         UPDATE Products
@@ -385,9 +403,13 @@ namespace billiard_management_system.Services
                         await cmd.ExecuteNonQueryAsync();
                     }
 
+                    string newValuesJson = $"{{\"ProductName\":\"{cleanName.Replace("\"", "\\\"")}\",\"Unit\":\"{cleanUnit.Replace("\"", "\\\"")}\",\"Price\":{product.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"IsActive\":{(product.IsActive ? "true" : "false")}}}";
+
                     await _auditLogService.LogAsync(
                         UserSession.CurrentUser?.UserId, "UPDATE_PRODUCT", "Product", product.ProductId,
-                        $"Cập nhật sản phẩm '{cleanName}' ({cleanUnit}), Giá mới={product.Price:N0}đ, IsActive={product.IsActive}.");
+                        $"Cập nhật sản phẩm '{cleanName}' ({cleanUnit}), Giá mới={product.Price:N0}đ, IsActive={product.IsActive}.",
+                        oldValuesJson,
+                        newValuesJson);
 
                     return (true, $"Cập nhật sản phẩm [{cleanName}] thành công!");
                 }

@@ -151,6 +151,7 @@
     <Compile Include="Models\Invoice.cs" />
     <Compile Include="Models\InvoiceDetail.cs" />
     <Compile Include="Models\RevenueReportModels.cs" />
+    <Compile Include="Models\AuditLog.cs" />
     <Compile Include="Helpers\UserPreferences.cs" />
     <Compile Include="Helpers\UserSession.cs" />
     <Compile Include="Services\AuditLogService.cs" />

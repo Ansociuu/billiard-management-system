@@ -434,6 +434,213 @@
                     </Border>
                 </Grid>
             </TabItem>
+
+            <!-- ================================================================== -->
+            <!-- TAB 3: NHẬT KÝ THAO TÁC HỆ THỐNG (AUDIT LOGS - ISSUE #23)          -->
+            <!-- ================================================================== -->
+            <TabItem Header="🛡️ NHẬT KÝ HỆ THỐNG (AUDIT LOGS)"
+                     Visibility="{Binding CanViewAuditLogs, Converter={StaticResource BoolToVisConverter}}">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- THANH BỘ LỌC NHẬT KÝ HỆ THỐNG -->
+                    <Border Grid.Row="0" Background="White" CornerRadius="10" Padding="16,12" Margin="0,0,0,14">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                        </Border.Effect>
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="280" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <DatePicker Grid.Column="0"
+                                            SelectedDate="{Binding AuditFromDate, Mode=TwoWay}"
+                                            materialDesign:HintAssist.Hint="Từ ngày"
+                                            Style="{StaticResource MaterialDesignOutlinedDatePicker}"
+                                            Padding="10,7" FontSize="12" Margin="0,0,8,0" />
+
+                                <DatePicker Grid.Column="1"
+                                            SelectedDate="{Binding AuditToDate, Mode=TwoWay}"
+                                            materialDesign:HintAssist.Hint="Đến ngày"
+                                            Style="{StaticResource MaterialDesignOutlinedDatePicker}"
+                                            Padding="10,7" FontSize="12" Margin="0,0,10,0" />
+
+                                <TextBox Grid.Column="2"
+                                         Text="{Binding AuditSearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                         materialDesign:HintAssist.Hint="🔍 Tìm hành động, người thực hiện, mô tả..."
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         Padding="10,7" FontSize="12" Margin="0,0,10,0" />
+
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Command="{Binding RefreshAuditLogsCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"
+                                            Background="#00897B" BorderBrush="#00897B"
+                                            Height="34" Padding="14,0" Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock Text="Tra cứu nhật ký" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Command="{Binding ClearAuditFiltersCommand}"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Height="34" Padding="12,0" Content="Đặt lại" FontSize="12" />
+                                </StackPanel>
+
+                                <Border Grid.Column="4" Background="#E0F2FE" CornerRadius="14" Padding="12,5" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Bản ghi: " Foreground="#0369A1" FontSize="12" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding TotalAuditLogsCount}" Foreground="#0369A1" FontSize="12" FontWeight="Bold" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Bộ lọc nhanh theo nhóm hành động -->
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Nhóm thao tác:" FontSize="12" FontWeight="SemiBold" Foreground="#475569" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <RadioButton Content="Tất cả" IsChecked="True"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterAuditCategoryCommand}" CommandParameter="All" Margin="0,0,6,0" />
+                                <RadioButton Content="Đăng nhập / Xác thực"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterAuditCategoryCommand}" CommandParameter="AUTH" Margin="0,0,6,0" />
+                                <RadioButton Content="Mở / Đóng phiên &amp; Bàn"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterAuditCategoryCommand}" CommandParameter="SESSION" Margin="0,0,6,0" />
+                                <RadioButton Content="Hóa đơn &amp; Thanh toán"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterAuditCategoryCommand}" CommandParameter="INVOICE" Margin="0,0,6,0" />
+                                <RadioButton Content="Thay đổi giá &amp; Dịch vụ"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterAuditCategoryCommand}" CommandParameter="PRICE_PRODUCT" Margin="0,0,6,0" />
+                                <RadioButton Content="Tài khoản &amp; Phân quyền"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterAuditCategoryCommand}" CommandParameter="USER_RBAC" Margin="0,0,6,0" />
+                                <RadioButton Content="Cảnh báo / Từ chối quyền"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterAuditCategoryCommand}" CommandParameter="SECURITY" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- BẢNG DANH SÁCH NHẬT KÝ (TRÁI) + CHI TIẾT TRƯỚC/SAU THAY ĐỔI (PHẢI) -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="6.3*" />
+                            <ColumnDefinition Width="3.7*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- CỘT TRÁI: BẢNG AUDIT LOGS -->
+                        <Border Grid.Column="0" Background="White" CornerRadius="10" Padding="14" Margin="0,0,14,0">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                            </Border.Effect>
+                            <DataGrid ItemsSource="{Binding AuditLogs}"
+                                      SelectedItem="{Binding SelectedAuditLog, Mode=TwoWay}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      SelectionMode="Single"
+                                      GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="#F1F5F9"
+                                      Background="White"
+                                      BorderThickness="0"
+                                      RowHeight="42"
+                                      FontSize="12">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Thời gian" Binding="{Binding CreatedAt, StringFormat={}{0:dd/MM/yyyy HH:mm:ss}}" Width="135" />
+                                    <DataGridTextColumn Header="Người thực hiện" Binding="{Binding ActorDisplay}" Width="165" FontWeight="SemiBold" />
+                                    <DataGridTemplateColumn Header="Hành động" Width="155">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{Binding ActionBadgeBackground}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Action}" Foreground="{Binding ActionBadgeForeground}" FontSize="11" FontWeight="Bold" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Đối tượng" Binding="{Binding EntityDisplay}" Width="125" />
+                                    <DataGridTextColumn Header="Mô tả chi tiết" Binding="{Binding Description}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+
+                        <!-- CỘT PHẢI: CHI TIẾT BẢN GHI & DỮ LIỆU TRƯỚC/SAU KHI THAY ĐỔI -->
+                        <Border Grid.Column="1" Background="White" CornerRadius="10" Padding="18">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                            </Border.Effect>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Visibility="{Binding HasSelectedAuditLog, Converter={StaticResource BoolToVisConverter}}">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <materialDesign:PackIcon Kind="ShieldSearch" Width="22" Height="22" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="CHI TIẾT NHẬT KÝ TRUY VẾT" FontSize="15" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                                    </StackPanel>
+
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,6">
+                                                <TextBlock Text="Mã nhật ký:" Foreground="#64748B" FontSize="12" />
+                                                <TextBlock Text="{Binding SelectedAuditLog.AuditLogId, StringFormat=#\{0\}}" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6">
+                                                <TextBlock Text="Thời điểm:" Foreground="#64748B" FontSize="12" />
+                                                <TextBlock Text="{Binding SelectedAuditLog.CreatedAt, StringFormat={}{0:dd/MM/yyyy HH:mm:ss}}" FontWeight="SemiBold" Foreground="#0F172A" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6">
+                                                <TextBlock Text="Người thực hiện:" Foreground="#64748B" FontSize="12" />
+                                                <TextBlock Text="{Binding SelectedAuditLog.ActorDisplay}" FontWeight="Bold" Foreground="#00897B" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6">
+                                                <TextBlock Text="Mã hành động:" Foreground="#64748B" FontSize="12" />
+                                                <TextBlock Text="{Binding SelectedAuditLog.Action}" FontWeight="Bold" Foreground="#0369A1" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Grid>
+                                                <TextBlock Text="Đối tượng tác động:" Foreground="#64748B" FontSize="12" />
+                                                <TextBlock Text="{Binding SelectedAuditLog.EntityDisplay}" FontWeight="SemiBold" Foreground="#0F172A" HorizontalAlignment="Right" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="MÔ TẢ NGHIỆP VỤ" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,12">
+                                        <TextBlock Text="{Binding SelectedAuditLog.Description}" FontSize="12.5" Foreground="#1E293B" TextWrapping="Wrap" />
+                                    </Border>
+
+                                    <TextBlock Text="DỮ LIỆU TRƯỚC KHI THAY ĐỔI (OLD VALUES)" FontSize="11" FontWeight="Bold" Foreground="#B45309" Margin="0,0,0,4" />
+                                    <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,12">
+                                        <TextBox Text="{Binding SelectedAuditLog.OldValuesDisplay, Mode=OneWay}"
+                                                 IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                                                 FontFamily="Consolas" FontSize="11.5" Foreground="#92400E"
+                                                 TextWrapping="Wrap" />
+                                    </Border>
+
+                                    <TextBlock Text="DỮ LIỆU SAU KHI THAY ĐỔI (NEW VALUES)" FontSize="11" FontWeight="Bold" Foreground="#15803D" Margin="0,0,0,4" />
+                                    <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10">
+                                        <TextBox Text="{Binding SelectedAuditLog.NewValuesDisplay, Mode=OneWay}"
+                                                 IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                                                 FontFamily="Consolas" FontSize="11.5" Foreground="#166534"
+                                                 TextWrapping="Wrap" />
+                                    </Border>
+
+                                    <Border Background="#EFF6FF" CornerRadius="6" Padding="10,8">
+                                        <TextBlock Text="🔒 Chính sách bảo mật: Mật khẩu, PasswordHash và khóa bí mật luôn được tự động ẩn ([REDACTED]) trước khi lưu vào AuditLogs."
+                                                   FontSize="11" Foreground="#1E40AF" TextWrapping="Wrap" />
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
         </TabControl>
     </Grid>
 </UserControl>

@@ -243,6 +243,29 @@ namespace billiard_management_system.Services
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 {
+                    string oldValuesJson = null;
+                    const string selectOldSql = @"
+                        SELECT RuleName, RuleType, DayType, HourlyRate, DiscountType, DiscountValue, IsActive
+                        FROM TablePricingRules
+                        WHERE PricingRuleId = @PricingRuleId LIMIT 1;";
+                    using (var oldCmd = new MySqlCommand(selectOldSql, conn))
+                    {
+                        oldCmd.Parameters.AddWithValue("@PricingRuleId", rule.PricingRuleId);
+                        using (var r = await oldCmd.ExecuteReaderAsync())
+                        {
+                            if (await r.ReadAsync())
+                            {
+                                string oldName = (r.GetString("RuleName") ?? string.Empty).Replace("\"", "\\\"");
+                                string oldType = r.GetString("RuleType");
+                                string oldDay = r.GetString("DayType");
+                                string oldRate = r.IsDBNull(r.GetOrdinal("HourlyRate")) ? "null" : r.GetDecimal("HourlyRate").ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                string oldDiscVal = r.IsDBNull(r.GetOrdinal("DiscountValue")) ? "null" : r.GetDecimal("DiscountValue").ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                bool oldActive = r.GetBoolean("IsActive");
+                                oldValuesJson = $"{{\"RuleName\":\"{oldName}\",\"RuleType\":\"{oldType}\",\"DayType\":\"{oldDay}\",\"HourlyRate\":{oldRate},\"DiscountValue\":{oldDiscVal},\"IsActive\":{(oldActive ? "true" : "false")}}}";
+                            }
+                        }
+                    }
+
                     const string sql = @"
                         UPDATE TablePricingRules
                         SET TableTypeId = @TableTypeId,
@@ -267,9 +290,15 @@ namespace billiard_management_system.Services
                         await cmd.ExecuteNonQueryAsync();
                     }
 
+                    string newRate = rule.HourlyRate.HasValue ? rule.HourlyRate.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "null";
+                    string newDiscVal = rule.DiscountValue.HasValue ? rule.DiscountValue.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "null";
+                    string newValuesJson = $"{{\"RuleName\":\"{(rule.RuleName ?? string.Empty).Replace("\"", "\\\"")}\",\"RuleType\":\"{rule.RuleType}\",\"DayType\":\"{rule.DayType}\",\"HourlyRate\":{newRate},\"DiscountValue\":{newDiscVal},\"IsActive\":{(rule.IsActive ? "true" : "false")}}}";
+
                     await _auditLogService.LogAsync(
                         UserSession.CurrentUser?.UserId, "UPDATE_PRICING_RULE", "TablePricingRule", rule.PricingRuleId,
-                        $"Cập nhật quy tắc giá '{rule.RuleName}' ({rule.RuleType} - {rule.DayType}, IsActive={rule.IsActive}).");
+                        $"Cập nhật quy tắc giá '{rule.RuleName}' ({rule.RuleType} - {rule.DayType}, IsActive={rule.IsActive}).",
+                        oldValuesJson,
+                        newValuesJson);
 
                     return (true, $"Cập nhật quy tắc [{rule.RuleName}] thành công!");
                 }

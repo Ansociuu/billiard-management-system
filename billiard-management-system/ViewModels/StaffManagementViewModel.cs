@@ -39,12 +39,21 @@ namespace billiard_management_system.ViewModels
     {
         private readonly IUserService _userService;
         private readonly IAuthService _authService;
+        private readonly IAuditLogService _auditLogService;
 
         private ObservableCollection<User> _allUsers = new ObservableCollection<User>();
         private ObservableCollection<User> _filteredUsers = new ObservableCollection<User>();
         private ObservableCollection<Role> _roles = new ObservableCollection<Role>();
         private ObservableCollection<PermissionCheckItem> _rolePermissionItems = new ObservableCollection<PermissionCheckItem>();
         private List<Permission> _allPermissions = new List<Permission>();
+
+        // Nhật ký hệ thống (Audit Logs - Issue #23)
+        private ObservableCollection<AuditLog> _auditLogs = new ObservableCollection<AuditLog>();
+        private AuditLog _selectedAuditLog;
+        private DateTime? _auditFromDate = DateTime.Today.AddDays(-7);
+        private DateTime? _auditToDate = DateTime.Today;
+        private string _auditCategoryFilter = "All";
+        private string _auditSearchKeyword = string.Empty;
 
         private User _selectedUser;
         private Role _selectedRoleForRbac;
@@ -68,10 +77,11 @@ namespace billiard_management_system.ViewModels
 
         public event Action<string, string> NotificationRequested;
 
-        public StaffManagementViewModel(IUserService userService = null, IAuthService authService = null)
+        public StaffManagementViewModel(IUserService userService = null, IAuthService authService = null, IAuditLogService auditLogService = null)
         {
             _userService = userService ?? new UserService();
             _authService = authService ?? new AuthService();
+            _auditLogService = auditLogService ?? new AuditLogService();
 
             Title = "Quản lý Tài khoản & Hồ sơ Nhân viên";
 
@@ -84,6 +94,10 @@ namespace billiard_management_system.ViewModels
             ToggleActiveStatusCommand = new AsyncRelayCommand(ExecuteToggleActiveStatusAsync);
             DeleteUserCommand = new AsyncRelayCommand(ExecuteDeleteUserAsync);
             SaveRolePermissionsCommand = new AsyncRelayCommand(ExecuteSaveRolePermissionsAsync);
+
+            RefreshAuditLogsCommand = new AsyncRelayCommand(LoadAuditLogsAsync);
+            FilterAuditCategoryCommand = new RelayCommand<string>(cat => _ = OnFilterAuditCategoryAsync(cat));
+            ClearAuditFiltersCommand = new AsyncRelayCommand(ExecuteClearAuditFiltersAsync);
 
             _ = LoadDataAsync();
         }
@@ -257,6 +271,67 @@ namespace billiard_management_system.ViewModels
         public ICommand DeleteUserCommand { get; }
         public ICommand SaveRolePermissionsCommand { get; }
 
+        // Commands & Properties Nhật ký hệ thống (Audit Logs - Issue #23)
+        public ICommand RefreshAuditLogsCommand { get; }
+        public ICommand FilterAuditCategoryCommand { get; }
+        public ICommand ClearAuditFiltersCommand { get; }
+
+        public bool CanViewAuditLogs => UserSession.IsAdmin
+            || UserSession.HasPermission(PermissionCodes.UserManage)
+            || UserSession.HasPermission(PermissionCodes.RoleManage);
+
+        public ObservableCollection<AuditLog> AuditLogs
+        {
+            get => _auditLogs;
+            set
+            {
+                if (SetProperty(ref _auditLogs, value))
+                {
+                    OnPropertyChanged(nameof(TotalAuditLogsCount));
+                }
+            }
+        }
+
+        public int TotalAuditLogsCount => _auditLogs?.Count ?? 0;
+
+        public AuditLog SelectedAuditLog
+        {
+            get => _selectedAuditLog;
+            set
+            {
+                if (SetProperty(ref _selectedAuditLog, value))
+                {
+                    OnPropertyChanged(nameof(HasSelectedAuditLog));
+                }
+            }
+        }
+
+        public bool HasSelectedAuditLog => _selectedAuditLog != null;
+
+        public DateTime? AuditFromDate
+        {
+            get => _auditFromDate;
+            set => SetProperty(ref _auditFromDate, value);
+        }
+
+        public DateTime? AuditToDate
+        {
+            get => _auditToDate;
+            set => SetProperty(ref _auditToDate, value);
+        }
+
+        public string AuditCategoryFilter
+        {
+            get => _auditCategoryFilter;
+            set => SetProperty(ref _auditCategoryFilter, value);
+        }
+
+        public string AuditSearchKeyword
+        {
+            get => _auditSearchKeyword;
+            set => SetProperty(ref _auditSearchKeyword, value);
+        }
+
         #endregion
 
         #region Methods
@@ -299,6 +374,11 @@ namespace billiard_management_system.ViewModels
                     {
                         ExecutePrepareNewUser();
                     }
+                }
+
+                if (CanViewAuditLogs)
+                {
+                    await LoadAuditLogsInternalAsync();
                 }
             }
             catch (Exception ex)
@@ -593,6 +673,65 @@ namespace billiard_management_system.ViewModels
             {
                 IsBusy = false;
             }
+        }
+
+        private async Task LoadAuditLogsAsync()
+        {
+            if (!CanViewAuditLogs)
+            {
+                Notify("Bạn không có quyền xem nhật ký hệ thống.", "Error");
+                return;
+            }
+
+            if (AuditFromDate.HasValue && AuditToDate.HasValue && AuditFromDate.Value.Date > AuditToDate.Value.Date)
+            {
+                ErrorMessage = "Từ ngày không được lớn hơn Đến ngày khi lọc nhật ký!";
+                Notify(ErrorMessage, "Error");
+                return;
+            }
+
+            IsBusy = true;
+            try
+            {
+                await LoadAuditLogsInternalAsync();
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Lỗi tải nhật ký hệ thống: {ex.Message}";
+                Notify(ErrorMessage, "Error");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private async Task LoadAuditLogsInternalAsync()
+        {
+            var logs = await _auditLogService.GetAuditLogsAsync(
+                AuditFromDate,
+                AuditToDate,
+                AuditCategoryFilter,
+                AuditSearchKeyword,
+                300);
+
+            AuditLogs = new ObservableCollection<AuditLog>(logs);
+            SelectedAuditLog = AuditLogs.FirstOrDefault();
+        }
+
+        private async Task OnFilterAuditCategoryAsync(string category)
+        {
+            AuditCategoryFilter = string.IsNullOrWhiteSpace(category) ? "All" : category;
+            await LoadAuditLogsAsync();
+        }
+
+        private async Task ExecuteClearAuditFiltersAsync()
+        {
+            AuditFromDate = DateTime.Today.AddDays(-7);
+            AuditToDate = DateTime.Today;
+            AuditCategoryFilter = "All";
+            AuditSearchKeyword = string.Empty;
+            await LoadAuditLogsAsync();
         }
 
         private void Notify(string message, string type = "Info")
