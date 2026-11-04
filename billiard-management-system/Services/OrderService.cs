@@ -11,6 +11,9 @@ namespace billiard_management_system.Services
     {
         Task<(decimal TableAmount, decimal ServiceAmount, decimal TotalAmount, TimeSpan Duration)> CalculateSessionBillingAsync(long sessionId);
         Task<(decimal TableAmount, decimal ServiceAmount, decimal TotalAmount, TimeSpan Duration, List<SessionPricingDetail> PricingSegments)> CalculateSessionBillingDetailedAsync(long sessionId, DateTime? customEndTime = null);
+        (bool Valid, string Message) ValidateInvoiceDetail(InvoiceDetail detail);
+        Task<(bool Success, Invoice Invoice, string Message)> CreateOrRefreshInvoiceForSessionAsync(long sessionId, int tableId, long userId, decimal discountAmount = 0m);
+        Task<Invoice> GetInvoiceBySessionIdAsync(long sessionId);
         Task<(bool Success, string InvoiceCode, string Message)> CheckoutAsync(long sessionId, int tableId, long userId, decimal discountAmount, string paymentMethod);
     }
 
@@ -96,6 +99,474 @@ namespace billiard_management_system.Services
             return (tableAmount, serviceAmount, totalAmount, duration, segments);
         }
 
+        /// <summary>
+        /// Kiểm tra tính hợp lệ của dòng chi tiết hóa đơn (ItemType = 'Table' hoặc 'Product', và ProductId tương ứng).
+        /// </summary>
+        public (bool Valid, string Message) ValidateInvoiceDetail(InvoiceDetail detail)
+        {
+            if (detail == null)
+            {
+                return (false, "Dòng chi tiết hóa đơn không được rỗng.");
+            }
+
+            if (string.IsNullOrWhiteSpace(detail.ItemType))
+            {
+                return (false, "Loại dòng chi tiết hóa đơn (ItemType) không được để trống.");
+            }
+
+            if (string.Equals(detail.ItemType, "Table", StringComparison.OrdinalIgnoreCase))
+            {
+                if (detail.ProductId.HasValue)
+                {
+                    return (false, "Dòng chi tiết tiền bàn (ItemType = 'Table') không được gắn mã sản phẩm (ProductId phải là NULL).");
+                }
+            }
+            else if (string.Equals(detail.ItemType, "Product", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!detail.ProductId.HasValue || detail.ProductId.Value <= 0)
+                {
+                    return (false, "Dòng chi tiết sản phẩm (ItemType = 'Product') bắt buộc phải có mã sản phẩm (ProductId > 0) hợp lệ.");
+                }
+            }
+            else
+            {
+                return (false, $"ItemType '{detail.ItemType}' không hợp lệ (Chỉ chấp nhận 'Table' hoặc 'Product').");
+            }
+
+            if (string.IsNullOrWhiteSpace(detail.Description))
+            {
+                return (false, "Mô tả dòng chi tiết hóa đơn (Description) không được để trống.");
+            }
+
+            if (detail.Quantity <= 0)
+            {
+                return (false, "Số lượng/thời lượng trên dòng hóa đơn phải lớn hơn 0.");
+            }
+
+            if (detail.UnitPrice < 0 || detail.Amount < 0)
+            {
+                return (false, "Đơn giá và thành tiền trên dòng hóa đơn không được âm.");
+            }
+
+            return (true, string.Empty);
+        }
+
+        private static async Task<string> GenerateUniqueInvoiceCodeAsync(
+            MySqlConnection conn, MySqlTransaction trans, DateTime now, long sessionId)
+        {
+            string baseCode = $"HD{now:yyyyMMddHHmmss}-{sessionId}";
+            if (baseCode.Length > 26)
+            {
+                baseCode = baseCode.Substring(0, 26);
+            }
+
+            string candidate = baseCode;
+            int suffix = 1;
+
+            const string checkCodeSql = "SELECT COUNT(1) FROM Invoices WHERE InvoiceCode = @Code;";
+            while (true)
+            {
+                using (var cmd = new MySqlCommand(checkCodeSql, conn, trans))
+                {
+                    cmd.Parameters.AddWithValue("@Code", candidate);
+                    long count = Convert.ToInt64(await cmd.ExecuteScalarAsync());
+                    if (count == 0)
+                    {
+                        return candidate;
+                    }
+                }
+
+                candidate = $"{baseCode}-{suffix}";
+                suffix++;
+            }
+        }
+
+        /// <summary>
+        /// Tạo hoặc cập nhật hóa đơn ở trạng thái Pending từ phiên chơi hợp lệ (lưu Invoices + InvoiceDetails trong 1 transaction).
+        /// Không tạo nhiều hóa đơn cho cùng một phiên (SessionId là UNIQUE).
+        /// </summary>
+        public async Task<(bool Success, Invoice Invoice, string Message)> CreateOrRefreshInvoiceForSessionAsync(
+            long sessionId, int tableId, long userId, decimal discountAmount = 0m)
+        {
+            if (sessionId <= 0)
+            {
+                return (false, null, "Mã phiên chơi không hợp lệ!");
+            }
+
+            if (discountAmount < 0)
+            {
+                return (false, null, "Số tiền giảm giá không được âm!");
+            }
+
+            try
+            {
+                DateTime now = DateTime.Now;
+                var (tableAmount, serviceAmount, totalBeforeDiscount, duration, pricingSegments) =
+                    await CalculateSessionBillingDetailedAsync(sessionId, now);
+                decimal clampedDiscount = Math.Min(totalBeforeDiscount, Math.Max(0m, discountAmount));
+                decimal finalAmount = Math.Max(0m, totalBeforeDiscount - clampedDiscount);
+
+                using (var conn = await DatabaseHelper.OpenConnectionAsync())
+                using (var trans = await conn.BeginTransactionAsync())
+                {
+                    const string checkSessionSql = @"
+                        SELECT s.Status, s.TableId, t.TableTypeId, t.TableNumber
+                        FROM Sessions s
+                        INNER JOIN Tables t ON s.TableId = t.TableId
+                        WHERE s.SessionId = @SessionId
+                        FOR UPDATE;";
+
+                    string sessionStatus;
+                    int dbTableId;
+                    int dbTableTypeId;
+                    string tableNumber;
+
+                    using (var cmdSession = new MySqlCommand(checkSessionSql, conn, trans))
+                    {
+                        cmdSession.Parameters.AddWithValue("@SessionId", sessionId);
+                        using (var reader = await cmdSession.ExecuteReaderAsync())
+                        {
+                            if (!await reader.ReadAsync())
+                            {
+                                await trans.RollbackAsync();
+                                return (false, null, $"Không tìm thấy phiên chơi #{sessionId}!");
+                            }
+
+                            sessionStatus = reader.GetString("Status");
+                            dbTableId = reader.GetInt32("TableId");
+                            dbTableTypeId = reader.GetInt32("TableTypeId");
+                            tableNumber = reader.GetString("TableNumber");
+                        }
+                    }
+
+                    if (string.Equals(sessionStatus, "Cancelled", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await trans.RollbackAsync();
+                        return (false, null, $"Không thể lập hóa đơn cho phiên #{sessionId} đã bị hủy!");
+                    }
+
+                    // Kiểm tra xem phiên đã có hóa đơn hay chưa (đảm bảo mỗi phiên chỉ có tối đa 1 hóa đơn)
+                    const string checkInvoiceSql = @"
+                        SELECT InvoiceId, InvoiceCode, Status
+                        FROM Invoices
+                        WHERE SessionId = @SessionId
+                        FOR UPDATE;";
+
+                    long existingInvoiceId = 0;
+                    string existingInvoiceCode = null;
+                    string existingInvoiceStatus = null;
+
+                    using (var cmdInv = new MySqlCommand(checkInvoiceSql, conn, trans))
+                    {
+                        cmdInv.Parameters.AddWithValue("@SessionId", sessionId);
+                        using (var reader = await cmdInv.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                existingInvoiceId = reader.GetInt64("InvoiceId");
+                                existingInvoiceCode = reader.GetString("InvoiceCode");
+                                existingInvoiceStatus = reader.GetString("Status");
+                            }
+                        }
+                    }
+
+                    if (existingInvoiceId > 0 && string.Equals(existingInvoiceStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await trans.RollbackAsync();
+                        return (false, null, $"Phiên chơi #{sessionId} đã được lập hóa đơn và thanh toán trước đó (Mã HĐ: {existingInvoiceCode})!");
+                    }
+
+                    await _pricingRuleService.SaveSessionPricingDetailsAsync(
+                        conn, trans, sessionId, dbTableId, dbTableTypeId, pricingSegments);
+
+                    long invoiceId;
+                    string invoiceCode;
+
+                    if (existingInvoiceId > 0)
+                    {
+                        invoiceId = existingInvoiceId;
+                        invoiceCode = existingInvoiceCode;
+
+                        const string updateInvSql = @"
+                            UPDATE Invoices
+                            SET UserId = @UserId,
+                                TableAmount = @TableAmount,
+                                ServiceAmount = @ServiceAmount,
+                                DiscountAmount = @DiscountAmount,
+                                TotalAmount = @TotalAmount,
+                                Status = 'Pending'
+                            WHERE InvoiceId = @InvoiceId;";
+
+                        using (var cmdUpd = new MySqlCommand(updateInvSql, conn, trans))
+                        {
+                            cmdUpd.Parameters.AddWithValue("@UserId", userId);
+                            cmdUpd.Parameters.AddWithValue("@TableAmount", tableAmount);
+                            cmdUpd.Parameters.AddWithValue("@ServiceAmount", serviceAmount);
+                            cmdUpd.Parameters.AddWithValue("@DiscountAmount", clampedDiscount);
+                            cmdUpd.Parameters.AddWithValue("@TotalAmount", finalAmount);
+                            cmdUpd.Parameters.AddWithValue("@InvoiceId", invoiceId);
+                            await cmdUpd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    else
+                    {
+                        invoiceCode = await GenerateUniqueInvoiceCodeAsync(conn, trans, now, sessionId);
+
+                        const string insertInvSql = @"
+                            INSERT INTO Invoices
+                                (InvoiceCode, SessionId, UserId, CreatedAt, TableAmount, ServiceAmount, DiscountAmount, TotalAmount, Status, PaymentMethod, PaidAt)
+                            VALUES
+                                (@InvoiceCode, @SessionId, @UserId, @Now, @TableAmount, @ServiceAmount, @DiscountAmount, @TotalAmount, 'Pending', NULL, NULL);
+                            SELECT LAST_INSERT_ID();";
+
+                        using (var cmdIns = new MySqlCommand(insertInvSql, conn, trans))
+                        {
+                            cmdIns.Parameters.AddWithValue("@InvoiceCode", invoiceCode);
+                            cmdIns.Parameters.AddWithValue("@SessionId", sessionId);
+                            cmdIns.Parameters.AddWithValue("@UserId", userId);
+                            cmdIns.Parameters.AddWithValue("@Now", now);
+                            cmdIns.Parameters.AddWithValue("@TableAmount", tableAmount);
+                            cmdIns.Parameters.AddWithValue("@ServiceAmount", serviceAmount);
+                            cmdIns.Parameters.AddWithValue("@DiscountAmount", clampedDiscount);
+                            cmdIns.Parameters.AddWithValue("@TotalAmount", finalAmount);
+                            invoiceId = Convert.ToInt64(await cmdIns.ExecuteScalarAsync());
+                        }
+                    }
+
+                    var (detailsOk, detailsErr, detailsList) = await RebuildInvoiceDetailsInTransactionAsync(
+                        conn, trans, invoiceId, sessionId, duration, tableAmount, pricingSegments);
+                    if (!detailsOk)
+                    {
+                        await trans.RollbackAsync();
+                        return (false, null, detailsErr);
+                    }
+
+                    await trans.CommitAsync();
+
+                    var invoice = new Invoice
+                    {
+                        InvoiceId = invoiceId,
+                        InvoiceCode = invoiceCode,
+                        SessionId = sessionId,
+                        UserId = userId,
+                        CreatedAt = now,
+                        TableAmount = tableAmount,
+                        ServiceAmount = serviceAmount,
+                        DiscountAmount = clampedDiscount,
+                        TotalAmount = finalAmount,
+                        Status = "Pending",
+                        TableNumber = tableNumber,
+                        Details = new System.Collections.ObjectModel.ObservableCollection<InvoiceDetail>(detailsList)
+                    };
+
+                    return (true, invoice, $"Đã lập hóa đơn tạm tính {invoiceCode} thành công!");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, null, $"Lỗi lập hóa đơn: {ex.Message}");
+            }
+        }
+
+        private async Task<(bool Success, string ErrorMessage, List<InvoiceDetail> Details)> RebuildInvoiceDetailsInTransactionAsync(
+            MySqlConnection conn, MySqlTransaction trans,
+            long invoiceId, long sessionId, TimeSpan duration, decimal tableAmount,
+            List<SessionPricingDetail> pricingSegments)
+        {
+            var detailsToInsert = new List<InvoiceDetail>();
+
+            // 1. Tạo các dòng chi tiết tiền bàn (ItemType = 'Table', ProductId = null)
+            if (pricingSegments != null && pricingSegments.Count > 0)
+            {
+                foreach (var seg in pricingSegments)
+                {
+                    decimal hours = Math.Max(0.01m, Math.Round(seg.DurationMinutes / 60m, 2));
+                    detailsToInsert.Add(new InvoiceDetail
+                    {
+                        InvoiceId = invoiceId,
+                        ItemType = "Table",
+                        ProductId = null,
+                        Description = $"Tiền giờ chơi ({seg.StartTime:HH:mm} - {seg.EndTime:HH:mm}) • {seg.RuleSummaryDisplay}",
+                        Quantity = hours,
+                        UnitPrice = seg.FinalHourlyRate,
+                        Amount = seg.Amount
+                    });
+                }
+            }
+            else
+            {
+                decimal hours = Math.Max(0.01m, Math.Round((decimal)duration.TotalHours, 2));
+                decimal unitRate = duration.TotalHours > 0 ? Math.Round(tableAmount / (decimal)duration.TotalHours, 0) : tableAmount;
+                detailsToInsert.Add(new InvoiceDetail
+                {
+                    InvoiceId = invoiceId,
+                    ItemType = "Table",
+                    ProductId = null,
+                    Description = $"Tiền giờ chơi ({(int)duration.TotalHours}h {duration.Minutes}m)",
+                    Quantity = hours,
+                    UnitPrice = unitRate,
+                    Amount = tableAmount
+                });
+            }
+
+            // 2. Lấy các dòng sản phẩm đã gọi từ SessionProducts (ItemType = 'Product', ProductId > 0)
+            const string selectProductsSql = @"
+                SELECT sp.ProductId, p.ProductName, sp.Quantity, sp.UnitPrice, sp.Amount
+                FROM SessionProducts sp
+                INNER JOIN Products p ON sp.ProductId = p.ProductId
+                WHERE sp.SessionId = @SessionId
+                ORDER BY sp.SessionProductId ASC;";
+
+            using (var cmdProd = new MySqlCommand(selectProductsSql, conn, trans))
+            {
+                cmdProd.Parameters.AddWithValue("@SessionId", sessionId);
+                using (var reader = await cmdProd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        detailsToInsert.Add(new InvoiceDetail
+                        {
+                            InvoiceId = invoiceId,
+                            ItemType = "Product",
+                            ProductId = reader.GetInt32("ProductId"),
+                            Description = reader.GetString("ProductName"),
+                            Quantity = reader.GetInt32("Quantity"),
+                            UnitPrice = reader.GetDecimal("UnitPrice"),
+                            Amount = reader.GetDecimal("Amount")
+                        });
+                    }
+                }
+            }
+
+            // 3. Kiểm tra tính hợp lệ của từng dòng InvoiceDetail trước khi ghi DB
+            foreach (var detail in detailsToInsert)
+            {
+                var (valid, msg) = ValidateInvoiceDetail(detail);
+                if (!valid)
+                {
+                    return (false, msg, null);
+                }
+            }
+
+            // 4. Xóa chi tiết cũ của hóa đơn (nếu có) và thêm mới toàn bộ trong transaction
+            const string deleteDetailsSql = "DELETE FROM InvoiceDetails WHERE InvoiceId = @InvoiceId;";
+            using (var cmdDel = new MySqlCommand(deleteDetailsSql, conn, trans))
+            {
+                cmdDel.Parameters.AddWithValue("@InvoiceId", invoiceId);
+                await cmdDel.ExecuteNonQueryAsync();
+            }
+
+            const string insertDetailSql = @"
+                INSERT INTO InvoiceDetails
+                    (InvoiceId, ItemType, ProductId, Description, Quantity, UnitPrice, Amount)
+                VALUES
+                    (@InvoiceId, @ItemType, @ProductId, @Description, @Quantity, @UnitPrice, @Amount);
+                SELECT LAST_INSERT_ID();";
+
+            foreach (var detail in detailsToInsert)
+            {
+                using (var cmdIns = new MySqlCommand(insertDetailSql, conn, trans))
+                {
+                    cmdIns.Parameters.AddWithValue("@InvoiceId", detail.InvoiceId);
+                    cmdIns.Parameters.AddWithValue("@ItemType", detail.ItemType);
+                    cmdIns.Parameters.AddWithValue("@ProductId", detail.ProductId.HasValue ? (object)detail.ProductId.Value : DBNull.Value);
+                    cmdIns.Parameters.AddWithValue("@Description", detail.Description);
+                    cmdIns.Parameters.AddWithValue("@Quantity", detail.Quantity);
+                    cmdIns.Parameters.AddWithValue("@UnitPrice", detail.UnitPrice);
+                    cmdIns.Parameters.AddWithValue("@Amount", detail.Amount);
+                    detail.InvoiceDetailId = Convert.ToInt64(await cmdIns.ExecuteScalarAsync());
+                }
+            }
+
+            return (true, string.Empty, detailsToInsert);
+        }
+
+        public async Task<Invoice> GetInvoiceBySessionIdAsync(long sessionId)
+        {
+            using (var conn = await DatabaseHelper.OpenConnectionAsync())
+            {
+                const string sql = @"
+                    SELECT i.InvoiceId, i.InvoiceCode, i.SessionId, i.UserId, i.CreatedAt,
+                           i.TableAmount, i.ServiceAmount, i.DiscountAmount, i.TotalAmount,
+                           i.Status, i.PaymentMethod, i.PaidAt,
+                           u.FullName AS CashierName, t.TableNumber
+                    FROM Invoices i
+                    INNER JOIN Sessions s ON i.SessionId = s.SessionId
+                    INNER JOIN Tables t ON s.TableId = t.TableId
+                    INNER JOIN Users u ON i.UserId = u.UserId
+                    WHERE i.SessionId = @SessionId
+                    LIMIT 1;";
+
+                Invoice invoice = null;
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@SessionId", sessionId);
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            int pmOrd = reader.GetOrdinal("PaymentMethod");
+                            int paidOrd = reader.GetOrdinal("PaidAt");
+
+                            invoice = new Invoice
+                            {
+                                InvoiceId = reader.GetInt64("InvoiceId"),
+                                InvoiceCode = reader.GetString("InvoiceCode"),
+                                SessionId = reader.GetInt64("SessionId"),
+                                UserId = reader.GetInt64("UserId"),
+                                CreatedAt = reader.GetDateTime("CreatedAt"),
+                                TableAmount = reader.GetDecimal("TableAmount"),
+                                ServiceAmount = reader.GetDecimal("ServiceAmount"),
+                                DiscountAmount = reader.GetDecimal("DiscountAmount"),
+                                TotalAmount = reader.GetDecimal("TotalAmount"),
+                                Status = reader.GetString("Status"),
+                                PaymentMethod = reader.IsDBNull(pmOrd) ? null : reader.GetString(pmOrd),
+                                PaidAt = reader.IsDBNull(paidOrd) ? (DateTime?)null : reader.GetDateTime(paidOrd),
+                                CashierName = reader.GetString("CashierName"),
+                                TableNumber = reader.GetString("TableNumber")
+                            };
+                        }
+                    }
+                }
+
+                if (invoice == null)
+                {
+                    return null;
+                }
+
+                const string detailSql = @"
+                    SELECT InvoiceDetailId, InvoiceId, ItemType, ProductId, Description, Quantity, UnitPrice, Amount
+                    FROM InvoiceDetails
+                    WHERE InvoiceId = @InvoiceId
+                    ORDER BY InvoiceDetailId ASC;";
+
+                using (var cmdDet = new MySqlCommand(detailSql, conn))
+                {
+                    cmdDet.Parameters.AddWithValue("@InvoiceId", invoice.InvoiceId);
+                    using (var reader = await cmdDet.ExecuteReaderAsync())
+                    {
+                        int prodOrd = reader.GetOrdinal("ProductId");
+                        while (await reader.ReadAsync())
+                        {
+                            invoice.Details.Add(new InvoiceDetail
+                            {
+                                InvoiceDetailId = reader.GetInt64("InvoiceDetailId"),
+                                InvoiceId = reader.GetInt64("InvoiceId"),
+                                ItemType = reader.GetString("ItemType"),
+                                ProductId = reader.IsDBNull(prodOrd) ? (int?)null : reader.GetInt32(prodOrd),
+                                Description = reader.GetString("Description"),
+                                Quantity = reader.GetDecimal("Quantity"),
+                                UnitPrice = reader.GetDecimal("UnitPrice"),
+                                Amount = reader.GetDecimal("Amount")
+                            });
+                        }
+                    }
+                }
+
+                return invoice;
+            }
+        }
+
         public async Task<(bool Success, string InvoiceCode, string Message)> CheckoutAsync(
             long sessionId, int tableId, long userId, decimal discountAmount, string paymentMethod)
         {
@@ -114,14 +585,29 @@ namespace billiard_management_system.Services
                 return (false, string.Empty, payDeniedMsg);
             }
 
+            if (discountAmount < 0)
+            {
+                return (false, string.Empty, "Số tiền giảm giá không được âm!");
+            }
+
+            string normalizedMethod = string.IsNullOrWhiteSpace(paymentMethod) ? "Cash" : paymentMethod.Trim();
+            if (!string.Equals(normalizedMethod, "Cash", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(normalizedMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, string.Empty, "Phương thức thanh toán không hợp lệ (Chỉ chấp nhận Cash hoặc BankTransfer)!");
+            }
+            normalizedMethod = string.Equals(normalizedMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase)
+                ? "BankTransfer"
+                : "Cash";
+
             try
             {
                 DateTime now = DateTime.Now;
                 // Tính toán số tiền theo từng khoảng thời gian (SessionPricingDetails)
                 var (tableAmount, serviceAmount, totalAmountBeforeDiscount, duration, pricingSegments) =
                     await CalculateSessionBillingDetailedAsync(sessionId, now);
-                decimal finalAmount = Math.Max(0, totalAmountBeforeDiscount - discountAmount);
-                string invoiceCode = $"HD{now:yyyyMMddHHmmss}";
+                decimal clampedDiscount = Math.Min(totalAmountBeforeDiscount, Math.Max(0m, discountAmount));
+                decimal finalAmount = Math.Max(0m, totalAmountBeforeDiscount - clampedDiscount);
 
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 using (var trans = await conn.BeginTransactionAsync())
@@ -159,59 +645,106 @@ namespace billiard_management_system.Services
                         return (false, string.Empty, $"Không thể kết thúc/thanh toán phiên #{sessionId} vì phiên này đã ở trạng thái '{currentStatus}'!");
                     }
 
+                    // Kiểm tra hóa đơn hiện có của phiên (chặn tạo nhiều hóa đơn hoặc thanh toán trùng cho cùng 1 phiên)
+                    const string checkExistingInvoiceSql = @"
+                        SELECT InvoiceId, InvoiceCode, Status
+                        FROM Invoices
+                        WHERE SessionId = @SessionId
+                        FOR UPDATE;";
+
+                    long existingInvoiceId = 0;
+                    string existingInvoiceCode = null;
+                    string existingInvoiceStatus = null;
+
+                    using (var cmdCheckInv = new MySqlCommand(checkExistingInvoiceSql, conn, trans))
+                    {
+                        cmdCheckInv.Parameters.AddWithValue("@SessionId", sessionId);
+                        using (var reader = await cmdCheckInv.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                existingInvoiceId = reader.GetInt64("InvoiceId");
+                                existingInvoiceCode = reader.GetString("InvoiceCode");
+                                existingInvoiceStatus = reader.GetString("Status");
+                            }
+                        }
+                    }
+
+                    if (existingInvoiceId > 0 && string.Equals(existingInvoiceStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await trans.RollbackAsync();
+                        return (false, existingInvoiceCode, $"Phiên chơi #{sessionId} đã được thanh toán trước đó (Mã HĐ: {existingInvoiceCode})!");
+                    }
+
                     // 0. Lưu chi tiết các khoảng thời gian tính tiền bàn vào SessionPricingDetails
                     await _pricingRuleService.SaveSessionPricingDetailsAsync(
                         conn, trans, sessionId, dbTableId, dbTableTypeId, pricingSegments);
 
-                    // 1. Thêm bản ghi Hóa đơn (Invoices)
-                    const string insertInvoiceSql = @"
-                        INSERT INTO Invoices (InvoiceCode, SessionId, UserId, CreatedAt, TableAmount, ServiceAmount, DiscountAmount, TotalAmount, Status, PaymentMethod, PaidAt)
-                        VALUES (@InvoiceCode, @SessionId, @UserId, @Now, @TableAmount, @ServiceAmount, @DiscountAmount, @TotalAmount, 'Paid', @PaymentMethod, @Now);
-                        SELECT LAST_INSERT_ID();";
+                    // 1. Tạo mới hoặc cập nhật bản ghi Hóa đơn (Invoices)
+                    long invoiceId;
+                    string invoiceCode;
 
-                    long invoiceId = 0;
-                    using (var cmd = new MySqlCommand(insertInvoiceSql, conn, trans))
+                    if (existingInvoiceId > 0)
                     {
-                        cmd.Parameters.AddWithValue("@InvoiceCode", invoiceCode);
-                        cmd.Parameters.AddWithValue("@SessionId", sessionId);
-                        cmd.Parameters.AddWithValue("@UserId", userId);
-                        cmd.Parameters.AddWithValue("@Now", now);
-                        cmd.Parameters.AddWithValue("@TableAmount", tableAmount);
-                        cmd.Parameters.AddWithValue("@ServiceAmount", serviceAmount);
-                        cmd.Parameters.AddWithValue("@DiscountAmount", discountAmount);
-                        cmd.Parameters.AddWithValue("@TotalAmount", finalAmount);
-                        cmd.Parameters.AddWithValue("@PaymentMethod", paymentMethod);
-                        invoiceId = Convert.ToInt64(await cmd.ExecuteScalarAsync());
+                        invoiceId = existingInvoiceId;
+                        invoiceCode = existingInvoiceCode;
+
+                        const string updateInvoiceSql = @"
+                            UPDATE Invoices
+                            SET UserId = @UserId,
+                                TableAmount = @TableAmount,
+                                ServiceAmount = @ServiceAmount,
+                                DiscountAmount = @DiscountAmount,
+                                TotalAmount = @TotalAmount,
+                                Status = 'Paid',
+                                PaymentMethod = @PaymentMethod,
+                                PaidAt = @Now
+                            WHERE InvoiceId = @InvoiceId;";
+
+                        using (var cmd = new MySqlCommand(updateInvoiceSql, conn, trans))
+                        {
+                            cmd.Parameters.AddWithValue("@UserId", userId);
+                            cmd.Parameters.AddWithValue("@TableAmount", tableAmount);
+                            cmd.Parameters.AddWithValue("@ServiceAmount", serviceAmount);
+                            cmd.Parameters.AddWithValue("@DiscountAmount", clampedDiscount);
+                            cmd.Parameters.AddWithValue("@TotalAmount", finalAmount);
+                            cmd.Parameters.AddWithValue("@PaymentMethod", normalizedMethod);
+                            cmd.Parameters.AddWithValue("@Now", now);
+                            cmd.Parameters.AddWithValue("@InvoiceId", invoiceId);
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    else
+                    {
+                        invoiceCode = await GenerateUniqueInvoiceCodeAsync(conn, trans, now, sessionId);
+
+                        const string insertInvoiceSql = @"
+                            INSERT INTO Invoices (InvoiceCode, SessionId, UserId, CreatedAt, TableAmount, ServiceAmount, DiscountAmount, TotalAmount, Status, PaymentMethod, PaidAt)
+                            VALUES (@InvoiceCode, @SessionId, @UserId, @Now, @TableAmount, @ServiceAmount, @DiscountAmount, @TotalAmount, 'Paid', @PaymentMethod, @Now);
+                            SELECT LAST_INSERT_ID();";
+
+                        using (var cmd = new MySqlCommand(insertInvoiceSql, conn, trans))
+                        {
+                            cmd.Parameters.AddWithValue("@InvoiceCode", invoiceCode);
+                            cmd.Parameters.AddWithValue("@SessionId", sessionId);
+                            cmd.Parameters.AddWithValue("@UserId", userId);
+                            cmd.Parameters.AddWithValue("@Now", now);
+                            cmd.Parameters.AddWithValue("@TableAmount", tableAmount);
+                            cmd.Parameters.AddWithValue("@ServiceAmount", serviceAmount);
+                            cmd.Parameters.AddWithValue("@DiscountAmount", clampedDiscount);
+                            cmd.Parameters.AddWithValue("@TotalAmount", finalAmount);
+                            cmd.Parameters.AddWithValue("@PaymentMethod", normalizedMethod);
+                            invoiceId = Convert.ToInt64(await cmd.ExecuteScalarAsync());
+                        }
                     }
 
-                    // 2. Thêm chi tiết dòng tiền giờ vào InvoiceDetails
-                    const string insertTableDetailSql = @"
-                        INSERT INTO InvoiceDetails (InvoiceId, ItemType, ProductId, Description, Quantity, UnitPrice, Amount)
-                        VALUES (@InvoiceId, 'Table', NULL, @Description, @Hours, @HourlyRate, @TableAmount);";
-
-                    using (var cmd = new MySqlCommand(insertTableDetailSql, conn, trans))
+                    // 2 & 3. Tạo và kiểm tra toàn bộ dòng chi tiết hóa đơn (Table + Product) trong cùng transaction
+                    var (detailsOk, detailsErr, _) = await RebuildInvoiceDetailsInTransactionAsync(
+                        conn, trans, invoiceId, sessionId, duration, tableAmount, pricingSegments);
+                    if (!detailsOk)
                     {
-                        cmd.Parameters.AddWithValue("@InvoiceId", invoiceId);
-                        cmd.Parameters.AddWithValue("@Description", $"Tiền giờ chơi ({(int)duration.TotalHours}h {duration.Minutes}m)");
-                        cmd.Parameters.AddWithValue("@Hours", Math.Round((decimal)duration.TotalHours, 2));
-                        cmd.Parameters.AddWithValue("@HourlyRate", duration.TotalHours > 0 ? Math.Round(tableAmount / (decimal)duration.TotalHours, 0) : tableAmount);
-                        cmd.Parameters.AddWithValue("@TableAmount", tableAmount);
-                        await cmd.ExecuteNonQueryAsync();
-                    }
-
-                    // 3. Sao chép chi tiết F&B từ SessionProducts sang InvoiceDetails
-                    const string copyProductsSql = @"
-                        INSERT INTO InvoiceDetails (InvoiceId, ItemType, ProductId, Description, Quantity, UnitPrice, Amount)
-                        SELECT @InvoiceId, 'Product', sp.ProductId, p.ProductName, sp.Quantity, sp.UnitPrice, sp.Amount
-                        FROM SessionProducts sp
-                        INNER JOIN Products p ON sp.ProductId = p.ProductId
-                        WHERE sp.SessionId = @SessionId;";
-
-                    using (var cmd = new MySqlCommand(copyProductsSql, conn, trans))
-                    {
-                        cmd.Parameters.AddWithValue("@InvoiceId", invoiceId);
-                        cmd.Parameters.AddWithValue("@SessionId", sessionId);
-                        await cmd.ExecuteNonQueryAsync();
+                        await trans.RollbackAsync();
+                        return (false, string.Empty, detailsErr);
                     }
 
                     // 4. Đóng phiên chơi (Sessions) với EndTime theo giờ địa phương
@@ -237,7 +770,12 @@ namespace billiard_management_system.Services
                     }
 
                     await trans.CommitAsync();
-                    return (true, invoiceCode, $"Thanh toán thành công! Hóa đơn: {invoiceCode}");
+
+                    await _auditLogService.LogAsync(
+                        userId, "INVOICE_PAID", "Invoice", invoiceId,
+                        $"Thanh toán hóa đơn {invoiceCode} cho phiên #{sessionId} (Bàn #{dbTableId}, PT: {normalizedMethod}, Tổng: {finalAmount:N0}đ).");
+
+                    return (true, invoiceCode, $"Thanh toán thành công! Hóa đơn: {invoiceCode} ({finalAmount:N0} đ)");
                 }
             }
             catch (Exception ex)
