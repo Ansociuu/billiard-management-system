@@ -18,7 +18,9 @@ namespace billiard_management_system.Services
         Task<(bool Success, string Message, int TableId)> CreateTableAsync(BilliardTable table);
         Task<(bool Success, string Message)> UpdateTableAsync(BilliardTable table);
         Task<(bool Success, string Message)> ToggleTableActiveAsync(int tableId, bool isActive);
-        Task<(bool Success, string Message, long SessionId)> StartSessionAsync(int tableId, long userId, long? customerId = null);
+        Task<(bool Success, string Message, long SessionId)> StartSessionAsync(
+            int tableId, long userId, long? customerId = null, string customerName = null, string customerPhone = null);
+        Task<(bool Success, string Message)> EndSessionAsync(long sessionId, int tableId, decimal tableAmount = 0m, bool isCancelled = false);
         Task<(bool Success, string Message)> SwitchTableAsync(long sessionId, int currentTableId, int newTableId);
         Task<(bool Success, string Message)> UpdateTableStatusAsync(int tableId, string newStatus);
     }
@@ -42,6 +44,7 @@ namespace billiard_management_system.Services
             }
 
             var tables = new List<BilliardTable>();
+            DateTime today = DateTime.Today;
 
             using (var conn = await DatabaseHelper.OpenConnectionAsync())
             {
@@ -54,12 +57,14 @@ namespace billiard_management_system.Services
                              WHERE tpr.TableTypeId = t.TableTypeId
                                AND tpr.IsActive = TRUE
                                AND tpr.RuleType = 'BaseRate'
-                               AND tpr.EffectiveFrom <= CURDATE()
-                               AND (tpr.EffectiveTo IS NULL OR tpr.EffectiveTo >= CURDATE())
+                               AND tpr.EffectiveFrom <= @Today
+                               AND (tpr.EffectiveTo IS NULL OR tpr.EffectiveTo >= @Today)
                              ORDER BY tpr.Priority DESC LIMIT 1), 
                             50000.00
                         ) AS HourlyRate,
-                        s.SessionId, s.StartTime, s.UserId, s.CustomerId, u.FullName AS StaffName, c.FullName AS CustomerName
+                        s.SessionId, s.StartTime, s.UserId, s.CustomerId,
+                        u.FullName AS StaffName,
+                        c.FullName AS CustomerName, c.Phone AS CustomerPhone
                     FROM Tables t
                     INNER JOIN TableTypes tt ON t.TableTypeId = tt.TableTypeId
                     LEFT JOIN Sessions s ON t.TableId = s.TableId AND s.Status = 'Active'
@@ -74,39 +79,53 @@ namespace billiard_management_system.Services
                 query += " ORDER BY t.IsActive DESC, t.TableTypeId ASC, t.TableNumber ASC;";
 
                 using (var cmd = new MySqlCommand(query, conn))
-                using (var reader = await cmd.ExecuteReaderAsync())
                 {
-                    while (await reader.ReadAsync())
+                    cmd.Parameters.AddWithValue("@Today", today);
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        var table = new BilliardTable
+                        while (await reader.ReadAsync())
                         {
-                            TableId = reader.GetInt32("TableId"),
-                            TableTypeId = reader.GetInt32("TableTypeId"),
-                            TableNumber = reader.GetString("TableNumber"),
-                            Status = reader.GetString("Status"),
-                            IsActive = reader.GetBoolean("IsActive"),
-                            TypeName = reader.GetString("TypeName"),
-                            HourlyRate = reader.GetDecimal("HourlyRate")
-                        };
-
-                        if (!reader.IsDBNull(reader.GetOrdinal("SessionId")))
-                        {
-                            table.CurrentSession = new BilliardSession
+                            var table = new BilliardTable
                             {
-                                SessionId = reader.GetInt64("SessionId"),
-                                TableId = table.TableId,
-                                TableNumber = table.TableNumber,
-                                StartTime = reader.GetDateTime("StartTime"),
-                                UserId = reader.GetInt64("UserId"),
-                                CustomerId = reader.IsDBNull(reader.GetOrdinal("CustomerId")) ? (long?)null : reader.GetInt64("CustomerId"),
-                                StaffName = reader.IsDBNull(reader.GetOrdinal("StaffName")) ? null : reader.GetString("StaffName"),
-                                CustomerName = reader.IsDBNull(reader.GetOrdinal("CustomerName")) ? null : reader.GetString("CustomerName"),
-                                Status = "Active"
+                                TableId = reader.GetInt32("TableId"),
+                                TableTypeId = reader.GetInt32("TableTypeId"),
+                                TableNumber = reader.GetString("TableNumber"),
+                                Status = reader.GetString("Status"),
+                                IsActive = reader.GetBoolean("IsActive"),
+                                TypeName = reader.GetString("TypeName"),
+                                HourlyRate = reader.GetDecimal("HourlyRate")
                             };
-                            table.UpdateElapsed();
-                        }
 
-                        tables.Add(table);
+                            if (!reader.IsDBNull(reader.GetOrdinal("SessionId")))
+                            {
+                                string custName = reader.IsDBNull(reader.GetOrdinal("CustomerName"))
+                                    ? "Khách vãng lai"
+                                    : reader.GetString("CustomerName");
+                                string custPhone = reader.IsDBNull(reader.GetOrdinal("CustomerPhone"))
+                                    ? null
+                                    : reader.GetString("CustomerPhone");
+                                if (!string.IsNullOrWhiteSpace(custPhone))
+                                {
+                                    custName = $"{custName} ({custPhone})";
+                                }
+
+                                table.CurrentSession = new BilliardSession
+                                {
+                                    SessionId = reader.GetInt64("SessionId"),
+                                    TableId = table.TableId,
+                                    TableNumber = table.TableNumber,
+                                    StartTime = reader.GetDateTime("StartTime"),
+                                    UserId = reader.GetInt64("UserId"),
+                                    CustomerId = reader.IsDBNull(reader.GetOrdinal("CustomerId")) ? (long?)null : reader.GetInt64("CustomerId"),
+                                    StaffName = reader.IsDBNull(reader.GetOrdinal("StaffName")) ? "Nhân viên" : reader.GetString("StaffName"),
+                                    CustomerName = custName,
+                                    Status = "Active"
+                                };
+                                table.UpdateElapsed();
+                            }
+
+                            tables.Add(table);
+                        }
                     }
                 }
             }
@@ -282,7 +301,6 @@ namespace billiard_management_system.Services
 
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 {
-                    // Nếu ngừng sử dụng loại bàn, kiểm tra xem có bàn nào thuộc loại này đang có khách chơi không
                     if (!tableType.IsActive)
                     {
                         const string checkActiveSql = @"
@@ -353,7 +371,6 @@ namespace billiard_management_system.Services
 
             try
             {
-                // Kiểm tra trùng số bàn
                 if (await IsTableNumberExistsAsync(cleanTableNo))
                 {
                     return (false, $"Số bàn '{cleanTableNo}' đã tồn tại trên hệ thống! Không được phép trùng số bàn.", 0);
@@ -416,7 +433,6 @@ namespace billiard_management_system.Services
 
             try
             {
-                // 1. Kiểm tra trùng số bàn (loại trừ chính bàn đang sửa)
                 if (await IsTableNumberExistsAsync(cleanTableNo, table.TableId))
                 {
                     return (false, $"Số bàn '{cleanTableNo}' đã tồn tại ở một bàn khác! Không cho phép trùng số bàn.");
@@ -424,7 +440,6 @@ namespace billiard_management_system.Services
 
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 {
-                    // 2. Kiểm tra trạng thái hiện tại và phiên chơi đang hoạt động (Active Session)
                     string currentStatus = "Available";
                     const string getTableSql = "SELECT Status FROM Tables WHERE TableId = @TableId;";
                     using (var cmdGet = new MySqlCommand(getTableSql, conn))
@@ -448,7 +463,6 @@ namespace billiard_management_system.Services
 
                     bool isCurrentlyPlaying = activeSessions > 0 || string.Equals(currentStatus, "Occupied", StringComparison.OrdinalIgnoreCase);
 
-                    // Tiêu chí 5: Không cho phép chuyển bàn đang có phiên chơi sang trạng thái không hợp lệ hoặc ngừng sử dụng
                     if (isCurrentlyPlaying)
                     {
                         if (!string.Equals(targetStatus, "Occupied", StringComparison.OrdinalIgnoreCase))
@@ -463,7 +477,6 @@ namespace billiard_management_system.Services
                     }
                     else
                     {
-                        // Bàn đang không có phiên chơi Active thì không được gán tay thành Occupied
                         if (string.Equals(targetStatus, "Occupied", StringComparison.OrdinalIgnoreCase))
                         {
                             return (false, "Không thể đặt thủ công trạng thái 'Đang chơi (Occupied)' khi chưa mở phiên chơi. Vui lòng dùng chức năng Mở Bàn.");
@@ -564,9 +577,9 @@ namespace billiard_management_system.Services
             }
         }
 
-        public async Task<(bool Success, string Message, long SessionId)> StartSessionAsync(int tableId, long userId, long? customerId = null)
+        public async Task<(bool Success, string Message, long SessionId)> StartSessionAsync(
+            int tableId, long userId, long? customerId = null, string customerName = null, string customerPhone = null)
         {
-            // Kiểm tra quyền mở phiên chơi (SESSION_OPEN) ở tầng nghiệp vụ
             var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionOpen, "Mở phiên chơi");
             if (!allowed)
             {
@@ -579,8 +592,9 @@ namespace billiard_management_system.Services
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 using (var trans = await conn.BeginTransactionAsync())
                 {
-                    // 1. Kiểm tra trạng thái bàn và trạng thái kinh doanh
-                    const string checkSql = "SELECT Status, IsActive FROM Tables WHERE TableId = @TableId FOR UPDATE;";
+                    // 1. Khóa dòng bàn và kiểm tra trạng thái bàn
+                    string tableNumber = null;
+                    const string checkSql = "SELECT TableNumber, Status, IsActive FROM Tables WHERE TableId = @TableId FOR UPDATE;";
                     using (var cmdCheck = new MySqlCommand(checkSql, conn, trans))
                     {
                         cmdCheck.Parameters.AddWithValue("@TableId", tableId);
@@ -592,6 +606,7 @@ namespace billiard_management_system.Services
                                 return (false, "Không tìm thấy bàn cần mở!", 0);
                             }
 
+                            tableNumber = reader.GetString("TableNumber");
                             string status = reader.GetString("Status");
                             bool isActive = reader.GetBoolean("IsActive");
                             reader.Close();
@@ -599,18 +614,18 @@ namespace billiard_management_system.Services
                             if (!isActive)
                             {
                                 await trans.RollbackAsync();
-                                return (false, "Bàn này đã ngừng sử dụng, không thể mở phiên chơi!", 0);
+                                return (false, $"Bàn [{tableNumber}] đã ngừng sử dụng, không thể mở phiên chơi!", 0);
                             }
 
-                            if (status != "Available")
+                            if (!string.Equals(status, "Available", StringComparison.OrdinalIgnoreCase))
                             {
                                 await trans.RollbackAsync();
-                                return (false, "Bàn đang có khách hoặc đang bảo trì, không thể mở!", 0);
+                                return (false, $"Bàn [{tableNumber}] đang có khách hoặc đang bảo trì, không thể mở phiên chơi mới!", 0);
                             }
                         }
                     }
 
-                    // Kiểm tra chống trùng phiên Active
+                    // 2. Chống trùng nhiều phiên Active trên cùng một bàn
                     const string checkActiveSessSql = "SELECT COUNT(1) FROM Sessions WHERE TableId = @TableId AND Status = 'Active';";
                     using (var cmdSess = new MySqlCommand(checkActiveSessSql, conn, trans))
                     {
@@ -619,11 +634,18 @@ namespace billiard_management_system.Services
                         if (activeCount > 0)
                         {
                             await trans.RollbackAsync();
-                            return (false, "Bàn hiện đã có phiên chơi đang hoạt động!", 0);
+                            return (false, $"Bàn [{tableNumber}] hiện đã có phiên chơi đang hoạt động (Active)! Không cho phép một bàn có nhiều phiên Active.", 0);
                         }
                     }
 
-                    // 2. Cập nhật trạng thái bàn thành Occupied
+                    // 3. Nếu nhân viên nhập thông tin khách hàng, tự động tìm hoặc tạo bản ghi Customers
+                    long? resolvedCustomerId = customerId;
+                    if (!resolvedCustomerId.HasValue && (!string.IsNullOrWhiteSpace(customerName) || !string.IsNullOrWhiteSpace(customerPhone)))
+                    {
+                        resolvedCustomerId = await ResolveOrCreateCustomerAsync(conn, trans, customerName, customerPhone);
+                    }
+
+                    // 4. Cập nhật trạng thái bàn thành Occupied
                     const string updateTableSql = "UPDATE Tables SET Status = 'Occupied' WHERE TableId = @TableId;";
                     using (var cmdUpdate = new MySqlCommand(updateTableSql, conn, trans))
                     {
@@ -631,10 +653,11 @@ namespace billiard_management_system.Services
                         await cmdUpdate.ExecuteNonQueryAsync();
                     }
 
-                    // 3. Tạo phiên chơi mới (Sessions)
+                    // 5. Tạo phiên chơi mới (Sessions) với thời điểm bắt đầu theo giờ địa phương chính xác (DateTime.Now)
+                    DateTime startTime = DateTime.Now;
                     const string insertSessionSql = @"
                         INSERT INTO Sessions (TableId, UserId, CustomerId, StartTime, Status, TableAmount)
-                        VALUES (@TableId, @UserId, @CustomerId, NOW(), 'Active', 0.00);
+                        VALUES (@TableId, @UserId, @CustomerId, @StartTime, 'Active', 0.00);
                         SELECT LAST_INSERT_ID();";
 
                     long sessionId = 0;
@@ -642,17 +665,170 @@ namespace billiard_management_system.Services
                     {
                         cmdInsert.Parameters.AddWithValue("@TableId", tableId);
                         cmdInsert.Parameters.AddWithValue("@UserId", userId);
-                        cmdInsert.Parameters.AddWithValue("@CustomerId", (object)customerId ?? DBNull.Value);
+                        cmdInsert.Parameters.AddWithValue("@CustomerId", (object)resolvedCustomerId ?? DBNull.Value);
+                        cmdInsert.Parameters.AddWithValue("@StartTime", startTime);
                         sessionId = Convert.ToInt64(await cmdInsert.ExecuteScalarAsync());
                     }
 
                     await trans.CommitAsync();
-                    return (true, "Mở bàn thành công!", sessionId);
+
+                    await _auditLogService.LogAsync(
+                        userId, "OPEN_SESSION", "Session", sessionId,
+                        $"Mở phiên chơi #{sessionId} tại bàn {tableNumber} lúc {startTime:dd/MM/yyyy HH:mm:ss}.");
+
+                    return (true, $"Mở bàn [{tableNumber}] thành công lúc {startTime:HH:mm}!", sessionId);
                 }
             }
             catch (Exception ex)
             {
                 return (false, $"Lỗi khi mở bàn: {ex.Message}", 0);
+            }
+        }
+
+        /// <summary>
+        /// Kết thúc hoặc hủy phiên chơi đang hoạt động, ghi nhận thời điểm kết thúc (EndTime) và giải phóng bàn về Available trong một Transaction.
+        /// Không cho phép kết thúc phiên đã Completed hoặc đã Cancelled.
+        /// </summary>
+        public async Task<(bool Success, string Message)> EndSessionAsync(long sessionId, int tableId, decimal tableAmount = 0m, bool isCancelled = false)
+        {
+            var (allowed, deniedMsg) = UserSession.CheckAccess(PermissionCodes.SessionClose, isCancelled ? "Hủy phiên chơi" : "Kết thúc phiên chơi");
+            if (!allowed)
+            {
+                await _auditLogService.LogAsync(UserSession.CurrentUser?.UserId, "ACCESS_DENIED", "Session", sessionId, deniedMsg);
+                return (false, deniedMsg);
+            }
+
+            if (sessionId <= 0)
+            {
+                return (false, "Mã phiên chơi không hợp lệ.");
+            }
+
+            try
+            {
+                using (var conn = await DatabaseHelper.OpenConnectionAsync())
+                using (var trans = await conn.BeginTransactionAsync())
+                {
+                    // 1. Khóa bản ghi phiên chơi và kiểm tra trạng thái hiện tại
+                    const string checkSessionSql = "SELECT Status, TableId FROM Sessions WHERE SessionId = @SessionId FOR UPDATE;";
+                    string currentSessionStatus = null;
+                    int dbTableId = tableId;
+
+                    using (var cmdCheck = new MySqlCommand(checkSessionSql, conn, trans))
+                    {
+                        cmdCheck.Parameters.AddWithValue("@SessionId", sessionId);
+                        using (var reader = await cmdCheck.ExecuteReaderAsync())
+                        {
+                            if (!await reader.ReadAsync())
+                            {
+                                await trans.RollbackAsync();
+                                return (false, $"Không tìm thấy phiên chơi #{sessionId}!");
+                            }
+
+                            currentSessionStatus = reader.GetString("Status");
+                            dbTableId = reader.GetInt32("TableId");
+                        }
+                    }
+
+                    // Không cho phép kết thúc phiên đã hoàn tất hoặc đã hủy
+                    if (!string.Equals(currentSessionStatus, "Active", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await trans.RollbackAsync();
+                        string stateVn = string.Equals(currentSessionStatus, "Completed", StringComparison.OrdinalIgnoreCase)
+                            ? "đã hoàn tất (Completed)"
+                            : "đã hủy (Cancelled)";
+                        return (false, $"Không thể kết thúc phiên chơi #{sessionId} vì phiên này {stateVn}!");
+                    }
+
+                    DateTime endTime = DateTime.Now;
+                    string targetSessionStatus = isCancelled ? "Cancelled" : "Completed";
+                    decimal finalTableAmount = isCancelled ? 0m : Math.Max(0m, tableAmount);
+
+                    // 2. Cập nhật thời điểm kết thúc và trạng thái phiên chơi
+                    const string updateSessionSql = @"
+                        UPDATE Sessions
+                        SET Status = @Status,
+                            EndTime = @EndTime,
+                            TableAmount = @TableAmount
+                        WHERE SessionId = @SessionId;";
+
+                    using (var cmdUpdateSession = new MySqlCommand(updateSessionSql, conn, trans))
+                    {
+                        cmdUpdateSession.Parameters.AddWithValue("@Status", targetSessionStatus);
+                        cmdUpdateSession.Parameters.AddWithValue("@EndTime", endTime);
+                        cmdUpdateSession.Parameters.AddWithValue("@TableAmount", finalTableAmount);
+                        cmdUpdateSession.Parameters.AddWithValue("@SessionId", sessionId);
+                        await cmdUpdateSession.ExecuteNonQueryAsync();
+                    }
+
+                    // 3. Giải phóng trạng thái bàn về Available
+                    const string updateTableSql = "UPDATE Tables SET Status = 'Available' WHERE TableId = @TableId;";
+                    using (var cmdUpdateTable = new MySqlCommand(updateTableSql, conn, trans))
+                    {
+                        cmdUpdateTable.Parameters.AddWithValue("@TableId", dbTableId);
+                        await cmdUpdateTable.ExecuteNonQueryAsync();
+                    }
+
+                    await trans.CommitAsync();
+
+                    await _auditLogService.LogAsync(
+                        UserSession.CurrentUser?.UserId,
+                        isCancelled ? "CANCEL_SESSION" : "CLOSE_SESSION",
+                        "Session", sessionId,
+                        $"{(isCancelled ? "Hủy" : "Kết thúc")} phiên chơi #{sessionId} (TableId={dbTableId}) lúc {endTime:dd/MM/yyyy HH:mm:ss}.");
+
+                    return (true, isCancelled
+                        ? $"Đã hủy phiên chơi #{sessionId} và trả bàn về trạng thái Trống!"
+                        : $"Đã kết thúc phiên chơi #{sessionId} thành công!");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Lỗi khi kết thúc phiên chơi: {ex.Message}");
+            }
+        }
+
+        private static async Task<long?> ResolveOrCreateCustomerAsync(
+            MySqlConnection conn, MySqlTransaction trans, string customerName, string customerPhone)
+        {
+            string cleanName = string.IsNullOrWhiteSpace(customerName) ? "Khách hàng" : customerName.Trim();
+            string cleanPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone.Trim();
+
+            if (!string.IsNullOrWhiteSpace(cleanPhone))
+            {
+                const string findSql = "SELECT CustomerId FROM Customers WHERE Phone = @Phone LIMIT 1;";
+                using (var cmdFind = new MySqlCommand(findSql, conn, trans))
+                {
+                    cmdFind.Parameters.AddWithValue("@Phone", cleanPhone);
+                    var existing = await cmdFind.ExecuteScalarAsync();
+                    if (existing != null && existing != DBNull.Value)
+                    {
+                        long existingId = Convert.ToInt64(existing);
+                        if (!string.IsNullOrWhiteSpace(customerName))
+                        {
+                            const string updSql = "UPDATE Customers SET FullName = @FullName WHERE CustomerId = @Id;";
+                            using (var cmdUpd = new MySqlCommand(updSql, conn, trans))
+                            {
+                                cmdUpd.Parameters.AddWithValue("@FullName", cleanName);
+                                cmdUpd.Parameters.AddWithValue("@Id", existingId);
+                                await cmdUpd.ExecuteNonQueryAsync();
+                            }
+                        }
+                        return existingId;
+                    }
+                }
+            }
+
+            const string insertCustSql = @"
+                INSERT INTO Customers (FullName, Phone, CreatedAt, IsActive)
+                VALUES (@FullName, @Phone, @CreatedAt, TRUE);
+                SELECT LAST_INSERT_ID();";
+
+            using (var cmdIns = new MySqlCommand(insertCustSql, conn, trans))
+            {
+                cmdIns.Parameters.AddWithValue("@FullName", cleanName);
+                cmdIns.Parameters.AddWithValue("@Phone", (object)cleanPhone ?? DBNull.Value);
+                cmdIns.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+                return Convert.ToInt64(await cmdIns.ExecuteScalarAsync());
             }
         }
 
@@ -675,6 +851,19 @@ namespace billiard_management_system.Services
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 using (var trans = await conn.BeginTransactionAsync())
                 {
+                    // Kiểm tra phiên chơi còn Active không
+                    const string checkSessionSql = "SELECT Status FROM Sessions WHERE SessionId = @SessionId FOR UPDATE;";
+                    using (var cmdSess = new MySqlCommand(checkSessionSql, conn, trans))
+                    {
+                        cmdSess.Parameters.AddWithValue("@SessionId", sessionId);
+                        var sessStatus = await cmdSess.ExecuteScalarAsync() as string;
+                        if (!string.Equals(sessStatus, "Active", StringComparison.OrdinalIgnoreCase))
+                        {
+                            await trans.RollbackAsync();
+                            return (false, "Chỉ có thể chuyển bàn cho phiên chơi đang hoạt động (Active)!");
+                        }
+                    }
+
                     // Kiểm tra bàn mới có trống và đang hoạt động không
                     const string checkSql = "SELECT Status, IsActive FROM Tables WHERE TableId = @NewTableId FOR UPDATE;";
                     using (var cmdCheck = new MySqlCommand(checkSql, conn, trans))
@@ -699,7 +888,6 @@ namespace billiard_management_system.Services
                         }
                     }
 
-                    // Cập nhật bàn cũ về Available
                     const string updateOldSql = "UPDATE Tables SET Status = 'Available' WHERE TableId = @OldTableId;";
                     using (var cmdOld = new MySqlCommand(updateOldSql, conn, trans))
                     {
@@ -707,7 +895,6 @@ namespace billiard_management_system.Services
                         await cmdOld.ExecuteNonQueryAsync();
                     }
 
-                    // Cập nhật bàn mới thành Occupied
                     const string updateNewSql = "UPDATE Tables SET Status = 'Occupied' WHERE TableId = @NewTableId;";
                     using (var cmdNew = new MySqlCommand(updateNewSql, conn, trans))
                     {
@@ -715,7 +902,6 @@ namespace billiard_management_system.Services
                         await cmdNew.ExecuteNonQueryAsync();
                     }
 
-                    // Cập nhật phiên chơi sang bàn mới
                     const string updateSessionSql = "UPDATE Sessions SET TableId = @NewTableId WHERE SessionId = @SessionId;";
                     using (var cmdSession = new MySqlCommand(updateSessionSql, conn, trans))
                     {
@@ -725,6 +911,11 @@ namespace billiard_management_system.Services
                     }
 
                     await trans.CommitAsync();
+
+                    await _auditLogService.LogAsync(
+                        UserSession.CurrentUser?.UserId, "SWITCH_TABLE", "Session", sessionId,
+                        $"Chuyển phiên chơi #{sessionId} từ TableId={currentTableId} sang TableId={newTableId}.");
+
                     return (true, "Chuyển bàn thành công!");
                 }
             }
@@ -752,7 +943,6 @@ namespace billiard_management_system.Services
             {
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 {
-                    // Kiểm tra xem bàn có đang có phiên chơi Active hay không
                     const string checkSql = @"
                         SELECT t.Status, t.TableNumber,
                                (SELECT COUNT(1) FROM Sessions s WHERE s.TableId = t.TableId AND s.Status = 'Active') AS ActiveSessions

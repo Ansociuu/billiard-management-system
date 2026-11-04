@@ -132,7 +132,8 @@ namespace billiard_management_system.Models
         {
             if (CurrentSession != null && CurrentSession.StartTime != default)
             {
-                ElapsedTime = DateTime.Now - CurrentSession.StartTime;
+                var diff = DateTime.Now - CurrentSession.StartTime;
+                ElapsedTime = diff > TimeSpan.Zero ? diff : TimeSpan.Zero;
             }
             else
             {

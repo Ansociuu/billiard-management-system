@@ -60,6 +60,10 @@ namespace billiard_management_system.Services
                     // Chỉ áp dụng quy tắc giá đang hoạt động (IsActive = TRUE) và còn trong hạn hiệu lực EffectiveFrom - EffectiveTo
                     decimal hourlyRate = await _pricingRuleService.GetEffectiveHourlyRateAsync(tableTypeId, DateTime.Now);
                     duration = DateTime.Now - startTime.Value;
+                    if (duration < TimeSpan.Zero)
+                    {
+                        duration = TimeSpan.Zero;
+                    }
                     if (duration.TotalMinutes < 1)
                     {
                         duration = TimeSpan.FromMinutes(1);
@@ -109,15 +113,42 @@ namespace billiard_management_system.Services
                 // Tính toán số tiền
                 var (tableAmount, serviceAmount, totalAmountBeforeDiscount, duration) = await CalculateSessionBillingAsync(sessionId);
                 decimal finalAmount = Math.Max(0, totalAmountBeforeDiscount - discountAmount);
-                string invoiceCode = $"HD{DateTime.Now:yyyyMMddHHmmss}";
+                DateTime now = DateTime.Now;
+                string invoiceCode = $"HD{now:yyyyMMddHHmmss}";
 
                 using (var conn = await DatabaseHelper.OpenConnectionAsync())
                 using (var trans = await conn.BeginTransactionAsync())
                 {
+                    // Kiểm tra trạng thái phiên chơi hiện tại (không cho phép kết thúc phiên đã hoàn tất hoặc đã hủy)
+                    const string checkSessionSql = "SELECT Status, TableId FROM Sessions WHERE SessionId = @SessionId FOR UPDATE;";
+                    string currentStatus = null;
+                    int dbTableId = tableId;
+
+                    using (var cmdCheck = new MySqlCommand(checkSessionSql, conn, trans))
+                    {
+                        cmdCheck.Parameters.AddWithValue("@SessionId", sessionId);
+                        using (var reader = await cmdCheck.ExecuteReaderAsync())
+                        {
+                            if (!await reader.ReadAsync())
+                            {
+                                await trans.RollbackAsync();
+                                return (false, string.Empty, $"Không tìm thấy phiên chơi #{sessionId}!");
+                            }
+                            currentStatus = reader.GetString("Status");
+                            dbTableId = reader.GetInt32("TableId");
+                        }
+                    }
+
+                    if (!string.Equals(currentStatus, "Active", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await trans.RollbackAsync();
+                        return (false, string.Empty, $"Không thể kết thúc/thanh toán phiên #{sessionId} vì phiên này đã ở trạng thái '{currentStatus}'!");
+                    }
+
                     // 1. Thêm bản ghi Hóa đơn (Invoices)
                     const string insertInvoiceSql = @"
                         INSERT INTO Invoices (InvoiceCode, SessionId, UserId, CreatedAt, TableAmount, ServiceAmount, DiscountAmount, TotalAmount, Status, PaymentMethod, PaidAt)
-                        VALUES (@InvoiceCode, @SessionId, @UserId, NOW(), @TableAmount, @ServiceAmount, @DiscountAmount, @TotalAmount, 'Paid', @PaymentMethod, NOW());
+                        VALUES (@InvoiceCode, @SessionId, @UserId, @Now, @TableAmount, @ServiceAmount, @DiscountAmount, @TotalAmount, 'Paid', @PaymentMethod, @Now);
                         SELECT LAST_INSERT_ID();";
 
                     long invoiceId = 0;
@@ -126,6 +157,7 @@ namespace billiard_management_system.Services
                         cmd.Parameters.AddWithValue("@InvoiceCode", invoiceCode);
                         cmd.Parameters.AddWithValue("@SessionId", sessionId);
                         cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@Now", now);
                         cmd.Parameters.AddWithValue("@TableAmount", tableAmount);
                         cmd.Parameters.AddWithValue("@ServiceAmount", serviceAmount);
                         cmd.Parameters.AddWithValue("@DiscountAmount", discountAmount);
@@ -164,14 +196,15 @@ namespace billiard_management_system.Services
                         await cmd.ExecuteNonQueryAsync();
                     }
 
-                    // 4. Đóng phiên chơi (Sessions)
+                    // 4. Đóng phiên chơi (Sessions) với EndTime theo giờ địa phương
                     const string closeSessionSql = @"
                         UPDATE Sessions 
-                        SET Status = 'Completed', EndTime = NOW(), TableAmount = @TableAmount 
+                        SET Status = 'Completed', EndTime = @Now, TableAmount = @TableAmount 
                         WHERE SessionId = @SessionId;";
 
                     using (var cmd = new MySqlCommand(closeSessionSql, conn, trans))
                     {
+                        cmd.Parameters.AddWithValue("@Now", now);
                         cmd.Parameters.AddWithValue("@TableAmount", tableAmount);
                         cmd.Parameters.AddWithValue("@SessionId", sessionId);
                         await cmd.ExecuteNonQueryAsync();
@@ -181,7 +214,7 @@ namespace billiard_management_system.Services
                     const string resetTableSql = "UPDATE Tables SET Status = 'Available' WHERE TableId = @TableId;";
                     using (var cmd = new MySqlCommand(resetTableSql, conn, trans))
                     {
-                        cmd.Parameters.AddWithValue("@TableId", tableId);
+                        cmd.Parameters.AddWithValue("@TableId", dbTableId);
                         await cmd.ExecuteNonQueryAsync();
                     }
 
