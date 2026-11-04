@@ -474,7 +474,7 @@
                                     <DataGridTextColumn Header="ID" Binding="{Binding TableId}" Width="50" />
                                     <DataGridTextColumn Header="Số bàn" Binding="{Binding TableNumber}" Width="90" FontWeight="Bold" />
                                     <DataGridTextColumn Header="Loại bàn" Binding="{Binding TypeName}" Width="*" />
-                                    <DataGridTextColumn Header="Giá cơ bản" Binding="{Binding HourlyRate, Converter={StaticResource CurrencyConverter}}" Width="110" />
+                                    <DataGridTextColumn Header="Giá áp dụng" Binding="{Binding HourlyRate, Converter={StaticResource CurrencyConverter}}" Width="110" />
                                     <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplayName}" Width="105" />
                                     <DataGridTextColumn Header="Kinh doanh" Binding="{Binding ActiveDisplayName}" Width="115" />
                                 </DataGrid.Columns>
@@ -618,6 +618,317 @@
                             </Border>
                         </Grid>
                     </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 3: QUẢN LÝ QUY TẮC GIÁ BÀN & KHUYẾN MÃI (TABLE PRICING RULES - #15)   -->
+            <!-- ========================================================================= -->
+            <TabItem Header="💰 QUY TẮC GIÁ BÀN &amp; KHUYẾN MÃI"
+                     Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVisConverter}}">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- THANH BỘ LỌC & THỐNG KÊ QUY TẮC GIÁ -->
+                    <Border Grid.Row="0" Background="White" CornerRadius="10" Padding="16,12" Margin="0,0,0,14">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Bộ lọc theo Loại quy tắc & Trạng thái -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <RadioButton Content="Tất cả quy tắc" IsChecked="True"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterRuleTypeCommand}" CommandParameter="All" Margin="0,0,6,0" />
+                                <RadioButton Content="💵 Giá cơ bản (BaseRate)"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterRuleTypeCommand}" CommandParameter="BaseRate" Margin="0,0,6,0" />
+                                <RadioButton Content="🎁 Khuyến mãi (Promotion)"
+                                             Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
+                                             Command="{Binding FilterRuleTypeCommand}" CommandParameter="Promotion" Margin="0,0,12,0" />
+
+                                <Border Width="1" Height="22" Background="#E2E8F0" Margin="0,0,12,0" />
+
+                                <Button Content="Đang áp dụng" Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Command="{Binding FilterRuleStatusCommand}" CommandParameter="Active" Height="30" Padding="10,0" FontSize="12" Margin="0,0,4,0" />
+                                <Button Content="Ngừng áp dụng" Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Command="{Binding FilterRuleStatusCommand}" CommandParameter="Inactive" Height="30" Padding="10,0" FontSize="12" Margin="0,0,4,0" />
+                                <Button Content="Tất cả TT" Style="{StaticResource MaterialDesignFlatButton}"
+                                        Command="{Binding FilterRuleStatusCommand}" CommandParameter="All" Height="30" Padding="8,0" FontSize="12" />
+                            </StackPanel>
+
+                            <!-- Thống kê & Nút Tạo quy tắc mới -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="#DCFCE7" CornerRadius="14" Padding="10,5" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Giá chuẩn: " Foreground="#15803D" FontSize="12" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ActiveBaseRulesCount}" Foreground="#15803D" FontSize="12" FontWeight="Bold" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#FEF3C7" CornerRadius="14" Padding="10,5" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Khuyến mãi: " Foreground="#B45309" FontSize="12" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ActivePromotionsCount}" Foreground="#B45309" FontSize="12" FontWeight="Bold" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#F1F5F9" CornerRadius="14" Padding="10,5" Margin="0,0,12,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Tạm ngưng: " Foreground="#475569" FontSize="12" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding InactiveRulesCount}" Foreground="#475569" FontSize="12" FontWeight="Bold" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Button Command="{Binding PrepareNewPricingRuleCommand}"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Background="#00897B" BorderBrush="#00897B"
+                                        Height="36" Padding="14,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="PlusCircleOutline" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <TextBlock Text="Tạo quy tắc giá" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- NỘI DUNG CHÍNH: BẢNG QUY TẮC GIÁ (TRÁI) + FORM CẤU HÌNH (PHẢI) -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="420" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- DANH SÁCH QUY TẮC GIÁ BÀN & KHUYẾN MÃI -->
+                        <Border Grid.Column="0" Background="White" CornerRadius="10" Padding="16" Margin="0,0,16,0">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                            </Border.Effect>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="CashMultiple" Width="22" Height="22" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Danh sách Quy tắc Giá bàn &amp; Chương trình Khuyến mãi (TablePricingRules)" FontSize="15" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <DataGrid Grid.Row="1"
+                                          ItemsSource="{Binding FilteredPricingRules}"
+                                          SelectedItem="{Binding SelectedPricingRule, Mode=TwoWay}"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          IsReadOnly="True"
+                                          SelectionMode="Single"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="Horizontal"
+                                          HorizontalGridLinesBrush="#F1F5F9"
+                                          BorderThickness="0"
+                                          RowHeight="44">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding PricingRuleId}" Width="45" />
+                                        <DataGridTextColumn Header="Tên quy tắc / KM" Binding="{Binding RuleName}" Width="*" FontWeight="Bold" />
+                                        <DataGridTextColumn Header="Loại bàn" Binding="{Binding TypeName}" Width="125" />
+                                        <DataGridTextColumn Header="Phân loại" Binding="{Binding RuleTypeDisplay}" Width="110" />
+                                        <DataGridTextColumn Header="Ngày áp dụng" Binding="{Binding DayTypeDisplay}" Width="135" />
+                                        <DataGridTextColumn Header="Khung giờ" Binding="{Binding TimeSlotDisplay}" Width="120" />
+                                        <DataGridTextColumn Header="Giá / Mức giảm" Binding="{Binding ValueDisplay}" Width="115" FontWeight="Bold" />
+                                        <DataGridTextColumn Header="Thời hạn hiệu lực" Binding="{Binding EffectiveDateDisplay}" Width="155" />
+                                        <DataGridTextColumn Header="Ưu tiên" Binding="{Binding Priority}" Width="65" />
+                                        <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplayName}" Width="110" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <!-- FORM TẠO / CHỈNH SỬA QUY TẮC GIÁ & KHUYẾN MÃI -->
+                        <Border Grid.Column="1" Background="White" CornerRadius="10" Padding="18">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" Color="#000000" Opacity="0.06" ShadowDepth="2" />
+                            </Border.Effect>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="0,0,0,10" Margin="0,0,0,12">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="TagMultipleOutline" Width="22" Height="22" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding RuleFormTitle}" FontSize="15" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Thông báo lỗi nếu có -->
+                                    <Border Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,12"
+                                            Visibility="{Binding HasError, Converter={StaticResource BoolToVisConverter}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AlertCircleOutline" Foreground="#DC2626" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12" TextWrapping="Wrap" Width="320" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBox Text="{Binding FormRuleName, UpdateSourceTrigger=PropertyChanged}"
+                                             materialDesign:HintAssist.Hint="Tên quy tắc giá / chương trình khuyến mãi *"
+                                             Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                             FontSize="13" Margin="0,0,0,12" />
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="105" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <ComboBox Grid.Column="0"
+                                                  ItemsSource="{Binding TableTypes}"
+                                                  SelectedValue="{Binding FormRuleTableTypeId, Mode=TwoWay}"
+                                                  SelectedValuePath="TableTypeId"
+                                                  DisplayMemberPath="TypeName"
+                                                  materialDesign:HintAssist.Hint="Loại bàn áp dụng *"
+                                                  Style="{StaticResource MaterialDesignFloatingHintComboBox}"
+                                                  FontSize="13" Margin="0,0,12,0" />
+
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding FormRulePriorityText, UpdateSourceTrigger=PropertyChanged}"
+                                                 materialDesign:HintAssist.Hint="Độ ưu tiên *"
+                                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                 FontSize="13" />
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <ComboBox Grid.Column="0"
+                                                  ItemsSource="{Binding AllowedRuleTypes}"
+                                                  SelectedItem="{Binding FormRuleType, Mode=TwoWay}"
+                                                  materialDesign:HintAssist.Hint="Loại quy tắc (BaseRate/Promotion)*"
+                                                  Style="{StaticResource MaterialDesignFloatingHintComboBox}"
+                                                  FontSize="13" Margin="0,0,10,0" />
+
+                                        <ComboBox Grid.Column="1"
+                                                  ItemsSource="{Binding AllowedDayTypes}"
+                                                  SelectedItem="{Binding FormRuleDayType, Mode=TwoWay}"
+                                                  materialDesign:HintAssist.Hint="Ngày áp dụng (Weekday/Weekend...)*"
+                                                  Style="{StaticResource MaterialDesignFloatingHintComboBox}"
+                                                  FontSize="13" />
+                                    </Grid>
+
+                                    <!-- KHUNG GIỜ ÁP DỤNG (START TIME - END TIME) -->
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <CheckBox Content="Áp dụng toàn thời gian trong ngày (00:00 - 24:00)"
+                                                      IsChecked="{Binding FormRuleIsAllDay, Mode=TwoWay}"
+                                                      FontWeight="SemiBold" Foreground="#0F172A" />
+
+                                            <Grid Margin="0,10,0,0"
+                                                  Visibility="{Binding IsCustomTimeSlot, Converter={StaticResource BoolToVisConverter}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBox Grid.Column="0"
+                                                         Text="{Binding FormRuleStartTimeText, UpdateSourceTrigger=PropertyChanged}"
+                                                         materialDesign:HintAssist.Hint="Giờ bắt đầu (HH:mm) *"
+                                                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                         FontSize="13" Margin="0,0,10,0" />
+
+                                                <TextBox Grid.Column="1"
+                                                         Text="{Binding FormRuleEndTimeText, UpdateSourceTrigger=PropertyChanged}"
+                                                         materialDesign:HintAssist.Hint="Giờ kết thúc (HH:mm) *"
+                                                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                         FontSize="13" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- GIÁ CƠ BẢN (HIỂN THỊ KHI RULE TYPE = BaseRate) -->
+                                    <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12"
+                                            Visibility="{Binding IsBaseRateRule, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBox Text="{Binding FormRuleHourlyRateText, UpdateSourceTrigger=PropertyChanged}"
+                                                 materialDesign:HintAssist.Hint="Đơn giá giờ cơ bản (VNĐ / giờ, > 0) *"
+                                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                 FontSize="14" FontWeight="Bold" Foreground="#15803D" />
+                                    </Border>
+
+                                    <!-- KHUYẾN MÃI (HIỂN THỊ KHI RULE TYPE = Promotion) -->
+                                    <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12"
+                                            Visibility="{Binding IsPromotionRule, Converter={StaticResource BoolToVisConverter}}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <ComboBox Grid.Column="0"
+                                                      ItemsSource="{Binding AllowedDiscountTypes}"
+                                                      SelectedItem="{Binding FormRuleDiscountType, Mode=TwoWay}"
+                                                      materialDesign:HintAssist.Hint="Hình thức giảm *"
+                                                      Style="{StaticResource MaterialDesignFloatingHintComboBox}"
+                                                      FontSize="13" Margin="0,0,10,0" />
+
+                                            <TextBox Grid.Column="1"
+                                                     Text="{Binding FormRuleDiscountValueText, UpdateSourceTrigger=PropertyChanged}"
+                                                     materialDesign:HintAssist.Hint="{Binding DiscountValueHint}"
+                                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                     FontSize="14" FontWeight="Bold" Foreground="#B45309" />
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- KHOẢNG NGÀY HIỆU LỰC (EFFECTIVE FROM - EFFECTIVE TO) -->
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <DatePicker SelectedDate="{Binding FormRuleEffectiveFrom, Mode=TwoWay}"
+                                                        materialDesign:HintAssist.Hint="Ngày bắt đầu hiệu lực (EffectiveFrom) *"
+                                                        Style="{StaticResource MaterialDesignFloatingHintDatePicker}"
+                                                        FontSize="13" Margin="0,0,0,10" />
+
+                                            <CheckBox Content="Giới hạn ngày kết thúc hiệu lực (EffectiveTo)"
+                                                      IsChecked="{Binding FormRuleHasEndDate, Mode=TwoWay}"
+                                                      FontWeight="Medium" Margin="0,0,0,6" />
+
+                                            <DatePicker SelectedDate="{Binding FormRuleEffectiveTo, Mode=TwoWay}"
+                                                        Visibility="{Binding FormRuleHasEndDate, Converter={StaticResource BoolToVisConverter}}"
+                                                        materialDesign:HintAssist.Hint="Ngày kết thúc hiệu lực (EffectiveTo >= EffectiveFrom) *"
+                                                        Style="{StaticResource MaterialDesignFloatingHintDatePicker}"
+                                                        FontSize="13" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <CheckBox Content="Đang hoạt động (Dùng để tính tiền tự động)"
+                                              IsChecked="{Binding FormRuleIsActive, Mode=TwoWay}"
+                                              FontWeight="SemiBold" Foreground="#0F172A" Margin="0,0,0,16" />
+
+                                    <Button Command="{Binding SavePricingRuleCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"
+                                            Background="#00897B" BorderBrush="#00897B"
+                                            Height="42" FontSize="13" FontWeight="Bold" Margin="0,0,0,8">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="ContentSaveCheckOutline" Width="19" Height="19" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding RuleSaveButtonText}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Command="{Binding TogglePricingRuleActiveCommand}"
+                                            Visibility="{Binding IsRuleEditMode, Converter={StaticResource BoolToVisConverter}}"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Foreground="#D97706" BorderBrush="#D97706"
+                                            Height="36" FontSize="12"
+                                            Content="{Binding ToggleRuleActiveButtonText}" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
                 </Grid>
             </TabItem>
         </TabControl>

@@ -16,10 +16,12 @@ namespace billiard_management_system.Services
     public class OrderService : IOrderService
     {
         private readonly IAuditLogService _auditLogService;
+        private readonly IPricingRuleService _pricingRuleService;
 
-        public OrderService(IAuditLogService auditLogService = null)
+        public OrderService(IAuditLogService auditLogService = null, IPricingRuleService pricingRuleService = null)
         {
             _auditLogService = auditLogService ?? new AuditLogService();
+            _pricingRuleService = pricingRuleService ?? new PricingRuleService(_auditLogService);
         }
 
         public async Task<(decimal TableAmount, decimal ServiceAmount, decimal TotalAmount, TimeSpan Duration)> CalculateSessionBillingAsync(long sessionId)
@@ -30,18 +32,15 @@ namespace billiard_management_system.Services
 
             using (var conn = await DatabaseHelper.OpenConnectionAsync())
             {
-                // 1. Lấy thông tin thời gian bắt đầu và đơn giá giờ của bàn
+                // 1. Lấy thông tin thời gian bắt đầu và loại bàn của phiên chơi
                 const string sessionSql = @"
-                    SELECT s.StartTime, 
-                           COALESCE(
-                               (SELECT HourlyRate FROM TablePricingRules tpr 
-                                WHERE tpr.TableTypeId = t.TableTypeId AND tpr.IsActive = TRUE 
-                                ORDER BY tpr.Priority DESC LIMIT 1), 
-                               50000.00
-                           ) AS HourlyRate
+                    SELECT s.StartTime, t.TableTypeId
                     FROM Sessions s
                     INNER JOIN Tables t ON s.TableId = t.TableId
                     WHERE s.SessionId = @SessionId;";
+
+                DateTime? startTime = null;
+                int tableTypeId = 1;
 
                 using (var cmd = new MySqlCommand(sessionSql, conn))
                 {
@@ -50,18 +49,24 @@ namespace billiard_management_system.Services
                     {
                         if (await reader.ReadAsync())
                         {
-                            var startTime = reader.GetDateTime("StartTime");
-                            var hourlyRate = reader.GetDecimal("HourlyRate");
-                            duration = DateTime.Now - startTime;
-                            if (duration.TotalMinutes < 1)
-                            {
-                                duration = TimeSpan.FromMinutes(1);
-                            }
-
-                            // Tính tiền bàn theo phút
-                            tableAmount = Math.Round((decimal)duration.TotalHours * hourlyRate, 0);
+                            startTime = reader.GetDateTime("StartTime");
+                            tableTypeId = reader.GetInt32("TableTypeId");
                         }
                     }
+                }
+
+                if (startTime.HasValue)
+                {
+                    // Chỉ áp dụng quy tắc giá đang hoạt động (IsActive = TRUE) và còn trong hạn hiệu lực EffectiveFrom - EffectiveTo
+                    decimal hourlyRate = await _pricingRuleService.GetEffectiveHourlyRateAsync(tableTypeId, DateTime.Now);
+                    duration = DateTime.Now - startTime.Value;
+                    if (duration.TotalMinutes < 1)
+                    {
+                        duration = TimeSpan.FromMinutes(1);
+                    }
+
+                    // Tính tiền bàn theo phút
+                    tableAmount = Math.Round((decimal)duration.TotalHours * hourlyRate, 0);
                 }
 
                 // 2. Tính tổng tiền dịch vụ (F&B)

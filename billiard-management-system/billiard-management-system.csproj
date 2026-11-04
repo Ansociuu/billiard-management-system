@@ -125,6 +125,7 @@
     <Compile Include="Models\Permission.cs" />
     <Compile Include="Models\TableType.cs" />
     <Compile Include="Models\BilliardTable.cs" />
+    <Compile Include="Models\TablePricingRule.cs" />
     <Compile Include="Models\ProductCategory.cs" />
     <Compile Include="Models\Product.cs" />
     <Compile Include="Models\Customer.cs" />
@@ -139,6 +140,7 @@
     <Compile Include="Helpers\Converters\Converters.cs" />
     <Compile Include="Services\AuthService.cs" />
     <Compile Include="Services\UserService.cs" />
+    <Compile Include="Services\PricingRuleService.cs" />
     <Compile Include="Services\TableService.cs" />
     <Compile Include="Services\ProductService.cs" />
     <Compile Include="Services\CloudinaryService.cs" />
