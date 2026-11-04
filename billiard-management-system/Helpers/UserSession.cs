@@ -91,6 +91,25 @@ namespace billiard_management_system.Helpers
         }
 
         /// <summary>
+        /// Thay đổi tạm thời ngữ cảnh phiên làm việc (phục vụ kiểm thử tích hợp RBAC mà không kích hoạt sự kiện chuyển màn hình UI)
+        /// </summary>
+        public static void ReplaceSessionSilently(User user, IEnumerable<string> permissions)
+        {
+            CurrentUser = user;
+            Permissions.Clear();
+            if (permissions != null)
+            {
+                foreach (var p in permissions)
+                {
+                    if (!string.IsNullOrWhiteSpace(p))
+                    {
+                        Permissions.Add(p.Trim());
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Kiểm tra người dùng hiện tại có quyền thực hiện thao tác hay không
         /// </summary>
         /// <param name="permissionCode">Mã quyền (vd: TABLE_VIEW, INVOICE_PAY, REPORT_VIEW,...)</param>

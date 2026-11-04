@@ -165,6 +165,7 @@
     <Compile Include="Services\CloudinaryService.cs" />
     <Compile Include="Services\OrderService.cs" />
     <Compile Include="Services\ReportService.cs" />
+    <Compile Include="Services\SystemIntegrationTestService.cs" />
     <Compile Include="ViewModels\BaseViewModel.cs" />
     <Compile Include="ViewModels\LoginViewModel.cs" />
     <Compile Include="ViewModels\TableManagementViewModel.cs" />

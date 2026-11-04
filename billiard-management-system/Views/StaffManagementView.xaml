@@ -641,6 +641,141 @@
                     </Grid>
                 </Grid>
             </TabItem>
+
+            <!-- ================================================================== -->
+            <!-- TAB 4: KIỂM THỬ TÍCH HỢP & THEO DÕI LỖI (TESTING - ISSUE #24)      -->
+            <!-- ================================================================== -->
+            <TabItem Header="🧪 KIỂM THỬ TÍCH HỢP &amp; THEO DÕI LỖI"
+                     Visibility="{Binding CanViewAuditLogs, Converter={StaticResource BoolToVisConverter}}">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="1.15*" />
+                        <RowDefinition Height="1*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- HEADER & NÚT CHẠY KIỂM THỬ TÍCH HỢP -->
+                    <Border Grid.Row="0" Background="White" CornerRadius="10" Padding="18,14" Margin="0,0,0,14">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <TextBlock Text="BỘ KIỂM THỬ TÍCH HỢP TOÀN LUỒNG NGHIỆP VỤ (SYSTEM INTEGRATION TEST SUITE)"
+                                           FontSize="15" FontWeight="Bold" Foreground="#0F172A" />
+                                <TextBlock Text="{Binding IntegrationTestSummaryText}"
+                                           FontSize="12" Foreground="#475569" TextWrapping="Wrap" Margin="0,4,0,0" />
+                            </StackPanel>
+
+                            <Button Grid.Column="1"
+                                    Command="{Binding RunIntegrationTestsCommand}"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                    Background="#00897B" BorderBrush="#00897B"
+                                    Height="42" Padding="20,0" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="PlayCircleOutline" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="CHẠY KIỂM THỬ TÍCH HỢP TOÀN HỆ THỐNG" FontWeight="Bold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- KẾT QUẢ CHẠY CÁC KỊCH BẢN KIỂM THỬ TÍCH HỢP (TC-01 -> TC-05) -->
+                    <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="16" Margin="0,0,0,14">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <materialDesign:PackIcon Kind="CheckDecagram" Width="20" Height="20" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="1. KẾT QUẢ KIỂM THỬ CÁC LUỒNG NGHIỆP VỤ, PHÂN QUYỀN RBAC &amp; BẢO TOÀN GIÁ LỊCH SỬ"
+                                           FontSize="14" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <DataGrid Grid.Row="1"
+                                      ItemsSource="{Binding IntegrationTestResults}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="#F1F5F9"
+                                      Background="White"
+                                      BorderThickness="0"
+                                      RowHeight="42"
+                                      FontSize="12">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mã TC" Binding="{Binding TestCode}" Width="75" FontWeight="Bold" />
+                                    <DataGridTextColumn Header="Nhóm kiểm thử" Binding="{Binding Category}" Width="155" />
+                                    <DataGridTextColumn Header="Kịch bản kiểm thử" Binding="{Binding TestName}" Width="280" FontWeight="SemiBold" />
+                                    <DataGridTemplateColumn Header="Trạng thái" Width="170">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{Binding StatusBadgeBackground}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding RetestStatus}" Foreground="{Binding StatusBadgeForeground}" FontSize="11" FontWeight="Bold" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Phụ trách" Binding="{Binding Owner}" Width="95" />
+                                    <DataGridTextColumn Header="Thời gian (ms)" Binding="{Binding DurationMs}" Width="95" />
+                                    <DataGridTextColumn Header="Kết quả thực tế chi tiết" Binding="{Binding ActualResult}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <!-- DANH SÁCH LỖI ĐÃ PHÁT HIỆN, NGƯỜI PHỤ TRÁCH VÀ KẾT QUẢ KIỂM THỬ LẠI -->
+                    <Border Grid.Row="2" Background="White" CornerRadius="10" Padding="16">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <materialDesign:PackIcon Kind="BugCheckOutline" Width="20" Height="20" Foreground="#0284C7" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="2. DANH SÁCH LỖI ĐÃ GHI NHẬN, NGƯỜI PHỤ TRÁCH &amp; KẾT QUẢ KIỂM THỬ LẠI (DEFECT &amp; RETEST LOG)"
+                                           FontSize="14" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <DataGrid Grid.Row="1"
+                                      ItemsSource="{Binding DefectTrackingRecords}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="#F1F5F9"
+                                      Background="White"
+                                      BorderThickness="0"
+                                      RowHeight="42"
+                                      FontSize="12">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mã lỗi" Binding="{Binding DefectId}" Width="80" FontWeight="Bold" />
+                                    <DataGridTextColumn Header="Issue" Binding="{Binding RelatedIssue}" Width="80" />
+                                    <DataGridTextColumn Header="Phân hệ" Binding="{Binding Module}" Width="135" FontWeight="SemiBold" />
+                                    <DataGridTextColumn Header="Mô tả vấn đề phát hiện" Binding="{Binding Description}" Width="280" />
+                                    <DataGridTextColumn Header="Giải pháp khắc phục" Binding="{Binding RootCauseAndFix}" Width="*" />
+                                    <DataGridTextColumn Header="Người phụ trách" Binding="{Binding Owner}" Width="150" />
+                                    <DataGridTextColumn Header="Kết quả kiểm thử lại" Binding="{Binding RetestResult}" Width="240" FontWeight="Bold" Foreground="#15803D" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
         </TabControl>
     </Grid>
 </UserControl>
