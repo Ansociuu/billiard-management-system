@@ -189,4 +189,25 @@ namespace billiard_management_system.Helpers.Converters
             throw new NotImplementedException();
         }
     }
+
+    /// <summary>
+    /// Đảo ngược giá trị bool sang Visibility (true -> Collapsed, false -> Visible)
+    /// </summary>
+    public class InverseBooleanToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            bool flag = value is bool b && b;
+            return flag ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is Visibility v)
+            {
+                return v != Visibility.Visible;
+            }
+            return false;
+        }
+    }
 }

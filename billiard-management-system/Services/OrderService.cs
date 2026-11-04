@@ -15,6 +15,9 @@ namespace billiard_management_system.Services
         (bool Valid, string Message) ValidateInvoiceDetail(InvoiceDetail detail);
         Task<(bool Success, Invoice Invoice, string Message)> CreateOrRefreshInvoiceForSessionAsync(long sessionId, int tableId, long userId, decimal discountAmount = 0m);
         Task<Invoice> GetInvoiceBySessionIdAsync(long sessionId);
+        Task<List<Invoice>> GetInvoicesAsync(DateTime? fromDate = null, DateTime? toDate = null, string statusFilter = null, string keyword = null);
+        Task<List<InvoiceDetail>> GetInvoiceDetailsAsync(long invoiceId);
+        Task<List<BilliardSession>> GetSessionsHistoryAsync(DateTime? fromDate = null, DateTime? toDate = null, string statusFilter = null, string keyword = null);
         Task<(bool Success, string InvoiceCode, string Message)> PayInvoiceAsync(long invoiceId, long userId, decimal discountAmount, string paymentMethod);
         Task<(bool Success, string InvoiceCode, string Message)> CheckoutAsync(long sessionId, int tableId, long userId, decimal discountAmount, string paymentMethod);
     }
@@ -570,6 +573,251 @@ namespace billiard_management_system.Services
 
                 return invoice;
             }
+        }
+
+        public async Task<List<Invoice>> GetInvoicesAsync(
+            DateTime? fromDate = null, DateTime? toDate = null, string statusFilter = null, string keyword = null)
+        {
+            var list = new List<Invoice>();
+
+            using (var conn = await DatabaseHelper.OpenConnectionAsync())
+            {
+                string sql = @"
+                    SELECT i.InvoiceId, i.InvoiceCode, i.SessionId, i.UserId, i.CreatedAt,
+                           i.TableAmount, i.ServiceAmount, i.DiscountAmount, i.TotalAmount,
+                           i.Status, i.PaymentMethod, i.PaidAt,
+                           u.FullName AS CashierName, t.TableNumber,
+                           COALESCE(c.FullName, 'Khách vãng lai') AS CustomerName,
+                           s.StartTime AS SessionStartTime, s.EndTime AS SessionEndTime
+                    FROM Invoices i
+                    INNER JOIN Sessions s ON i.SessionId = s.SessionId
+                    INNER JOIN Tables t ON s.TableId = t.TableId
+                    INNER JOIN Users u ON i.UserId = u.UserId
+                    LEFT JOIN Customers c ON s.CustomerId = c.CustomerId
+                    WHERE 1 = 1";
+
+                if (fromDate.HasValue)
+                {
+                    sql += " AND i.CreatedAt >= @FromDate";
+                }
+
+                if (toDate.HasValue)
+                {
+                    sql += " AND i.CreatedAt < @ToDateExclusive";
+                }
+
+                if (!string.IsNullOrWhiteSpace(statusFilter) && !string.Equals(statusFilter, "All", StringComparison.OrdinalIgnoreCase))
+                {
+                    sql += " AND i.Status = @Status";
+                }
+
+                if (!string.IsNullOrWhiteSpace(keyword))
+                {
+                    sql += @" AND (i.InvoiceCode LIKE @Keyword
+                                   OR t.TableNumber LIKE @Keyword
+                                   OR u.FullName LIKE @Keyword
+                                   OR COALESCE(c.FullName, '') LIKE @Keyword
+                                   OR CAST(i.SessionId AS CHAR) LIKE @Keyword)";
+                }
+
+                sql += " ORDER BY i.CreatedAt DESC, i.InvoiceId DESC;";
+
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    if (fromDate.HasValue)
+                    {
+                        cmd.Parameters.AddWithValue("@FromDate", fromDate.Value.Date);
+                    }
+
+                    if (toDate.HasValue)
+                    {
+                        cmd.Parameters.AddWithValue("@ToDateExclusive", toDate.Value.Date.AddDays(1));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(statusFilter) && !string.Equals(statusFilter, "All", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cmd.Parameters.AddWithValue("@Status", statusFilter.Trim());
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(keyword))
+                    {
+                        cmd.Parameters.AddWithValue("@Keyword", $"%{keyword.Trim()}%");
+                    }
+
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        int pmOrd = reader.GetOrdinal("PaymentMethod");
+                        int paidOrd = reader.GetOrdinal("PaidAt");
+                        int endOrd = reader.GetOrdinal("SessionEndTime");
+
+                        while (await reader.ReadAsync())
+                        {
+                            list.Add(new Invoice
+                            {
+                                InvoiceId = reader.GetInt64("InvoiceId"),
+                                InvoiceCode = reader.GetString("InvoiceCode"),
+                                SessionId = reader.GetInt64("SessionId"),
+                                UserId = reader.GetInt64("UserId"),
+                                CreatedAt = reader.GetDateTime("CreatedAt"),
+                                TableAmount = reader.GetDecimal("TableAmount"),
+                                ServiceAmount = reader.GetDecimal("ServiceAmount"),
+                                DiscountAmount = reader.GetDecimal("DiscountAmount"),
+                                TotalAmount = reader.GetDecimal("TotalAmount"),
+                                Status = reader.GetString("Status"),
+                                PaymentMethod = reader.IsDBNull(pmOrd) ? null : reader.GetString(pmOrd),
+                                PaidAt = reader.IsDBNull(paidOrd) ? (DateTime?)null : reader.GetDateTime(paidOrd),
+                                CashierName = reader.GetString("CashierName"),
+                                TableNumber = reader.GetString("TableNumber"),
+                                CustomerName = reader.GetString("CustomerName"),
+                                SessionStartTime = reader.GetDateTime("SessionStartTime"),
+                                SessionEndTime = reader.IsDBNull(endOrd) ? (DateTime?)null : reader.GetDateTime(endOrd)
+                            });
+                        }
+                    }
+                }
+            }
+
+            return list;
+        }
+
+        public async Task<List<InvoiceDetail>> GetInvoiceDetailsAsync(long invoiceId)
+        {
+            var list = new List<InvoiceDetail>();
+            using (var conn = await DatabaseHelper.OpenConnectionAsync())
+            {
+                const string sql = @"
+                    SELECT InvoiceDetailId, InvoiceId, ItemType, ProductId, Description, Quantity, UnitPrice, Amount
+                    FROM InvoiceDetails
+                    WHERE InvoiceId = @InvoiceId
+                    ORDER BY CASE WHEN ItemType = 'Table' THEN 0 ELSE 1 END, InvoiceDetailId ASC;";
+
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@InvoiceId", invoiceId);
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        int prodOrd = reader.GetOrdinal("ProductId");
+                        while (await reader.ReadAsync())
+                        {
+                            list.Add(new InvoiceDetail
+                            {
+                                InvoiceDetailId = reader.GetInt64("InvoiceDetailId"),
+                                InvoiceId = reader.GetInt64("InvoiceId"),
+                                ItemType = reader.GetString("ItemType"),
+                                ProductId = reader.IsDBNull(prodOrd) ? (int?)null : reader.GetInt32(prodOrd),
+                                Description = reader.GetString("Description"),
+                                Quantity = reader.GetDecimal("Quantity"),
+                                UnitPrice = reader.GetDecimal("UnitPrice"),
+                                Amount = reader.GetDecimal("Amount")
+                            });
+                        }
+                    }
+                }
+            }
+            return list;
+        }
+
+        public async Task<List<BilliardSession>> GetSessionsHistoryAsync(
+            DateTime? fromDate = null, DateTime? toDate = null, string statusFilter = null, string keyword = null)
+        {
+            var list = new List<BilliardSession>();
+
+            using (var conn = await DatabaseHelper.OpenConnectionAsync())
+            {
+                string sql = @"
+                    SELECT s.SessionId, s.TableId, s.UserId, s.CustomerId, s.StartTime, s.EndTime, s.Status, s.TableAmount,
+                           t.TableNumber, tt.TypeName, u.FullName AS StaffName,
+                           COALESCE(c.FullName, 'Khách vãng lai') AS CustomerName,
+                           i.InvoiceCode,
+                           COALESCE((SELECT SUM(sp.Amount) FROM SessionProducts sp WHERE sp.SessionId = s.SessionId), 0) AS ServiceAmount
+                    FROM Sessions s
+                    INNER JOIN Tables t ON s.TableId = t.TableId
+                    INNER JOIN TableTypes tt ON t.TableTypeId = tt.TableTypeId
+                    INNER JOIN Users u ON s.UserId = u.UserId
+                    LEFT JOIN Customers c ON s.CustomerId = c.CustomerId
+                    LEFT JOIN Invoices i ON s.SessionId = i.SessionId
+                    WHERE 1 = 1";
+
+                if (fromDate.HasValue)
+                {
+                    sql += " AND s.StartTime >= @FromDate";
+                }
+
+                if (toDate.HasValue)
+                {
+                    sql += " AND s.StartTime < @ToDateExclusive";
+                }
+
+                if (!string.IsNullOrWhiteSpace(statusFilter) && !string.Equals(statusFilter, "All", StringComparison.OrdinalIgnoreCase))
+                {
+                    sql += " AND s.Status = @Status";
+                }
+
+                if (!string.IsNullOrWhiteSpace(keyword))
+                {
+                    sql += @" AND (t.TableNumber LIKE @Keyword
+                                   OR tt.TypeName LIKE @Keyword
+                                   OR u.FullName LIKE @Keyword
+                                   OR COALESCE(c.FullName, '') LIKE @Keyword
+                                   OR COALESCE(i.InvoiceCode, '') LIKE @Keyword
+                                   OR CAST(s.SessionId AS CHAR) LIKE @Keyword)";
+                }
+
+                sql += " ORDER BY s.StartTime DESC, s.SessionId DESC;";
+
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    if (fromDate.HasValue)
+                    {
+                        cmd.Parameters.AddWithValue("@FromDate", fromDate.Value.Date);
+                    }
+
+                    if (toDate.HasValue)
+                    {
+                        cmd.Parameters.AddWithValue("@ToDateExclusive", toDate.Value.Date.AddDays(1));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(statusFilter) && !string.Equals(statusFilter, "All", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cmd.Parameters.AddWithValue("@Status", statusFilter.Trim());
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(keyword))
+                    {
+                        cmd.Parameters.AddWithValue("@Keyword", $"%{keyword.Trim()}%");
+                    }
+
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        int custIdOrd = reader.GetOrdinal("CustomerId");
+                        int endOrd = reader.GetOrdinal("EndTime");
+                        int invCodeOrd = reader.GetOrdinal("InvoiceCode");
+
+                        while (await reader.ReadAsync())
+                        {
+                            list.Add(new BilliardSession
+                            {
+                                SessionId = reader.GetInt64("SessionId"),
+                                TableId = reader.GetInt32("TableId"),
+                                UserId = reader.GetInt64("UserId"),
+                                CustomerId = reader.IsDBNull(custIdOrd) ? (long?)null : reader.GetInt64(custIdOrd),
+                                StartTime = reader.GetDateTime("StartTime"),
+                                EndTime = reader.IsDBNull(endOrd) ? (DateTime?)null : reader.GetDateTime(endOrd),
+                                Status = reader.GetString("Status"),
+                                TableAmount = reader.GetDecimal("TableAmount"),
+                                TableNumber = reader.GetString("TableNumber"),
+                                TypeName = reader.GetString("TypeName"),
+                                StaffName = reader.GetString("StaffName"),
+                                CustomerName = reader.GetString("CustomerName"),
+                                InvoiceCode = reader.IsDBNull(invCodeOrd) ? "Chưa lập HĐ" : reader.GetString(invCodeOrd),
+                                ServiceAmount = reader.GetDecimal("ServiceAmount")
+                            });
+                        }
+                    }
+                }
+            }
+
+            return list;
         }
 
         /// <summary>

@@ -52,7 +52,16 @@ namespace billiard_management_system.ViewModels
                 ProductsVM = new MenuPlaceholderViewModel("Quản lý Dịch vụ", "FoodForkDrink", "Theo dõi danh mục sản phẩm, đồ uống, món ăn phục vụ tại quán.");
             }
 
-            InvoicesVM = new MenuPlaceholderViewModel("Hóa đơn & Tra cứu Thu ngân", "ReceiptTextOutline", "Xem lại lịch sử phiên chơi, chi tiết hóa đơn thanh toán và đối soát ca trực.");
+            if (CanAccessInvoices)
+            {
+                var invVm = new InvoiceManagementViewModel();
+                invVm.NotificationRequested += ShowNotification;
+                InvoicesVM = invVm;
+            }
+            else
+            {
+                InvoicesVM = new MenuPlaceholderViewModel("Hóa đơn & Tra cứu Thu ngân", "ReceiptTextOutline", "Xem lại lịch sử phiên chơi, chi tiết hóa đơn thanh toán và đối soát ca trực.");
+            }
             ReportsVM = new MenuPlaceholderViewModel("Báo cáo Doanh thu & Thống kê", "ChartBar", "Biểu đồ thống kê doanh số theo ngày, tuần, tháng và công suất khai thác bàn.");
 
             if (CanAccessStaff)
@@ -111,6 +120,18 @@ namespace billiard_management_system.ViewModels
                     HandleAccessDenied("Navigation.Invoices", msg);
                     return;
                 }
+
+                if (InvoicesVM is InvoiceManagementViewModel existingInvVm)
+                {
+                    _ = existingInvVm.LoadDataAsync();
+                }
+                else
+                {
+                    var invVm = new InvoiceManagementViewModel();
+                    invVm.NotificationRequested += ShowNotification;
+                    InvoicesVM = invVm;
+                }
+
                 CurrentViewModel = InvoicesVM;
                 ActiveMenu = "Invoices";
             });

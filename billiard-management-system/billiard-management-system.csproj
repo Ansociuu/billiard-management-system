@@ -78,6 +78,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Views\InvoiceManagementView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\StaffManagementView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -105,6 +109,10 @@
     </Compile>
     <Compile Include="Views\ProductManagementView.xaml.cs">
       <DependentUpon>ProductManagementView.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Views\InvoiceManagementView.xaml.cs">
+      <DependentUpon>InvoiceManagementView.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Views\StaffManagementView.xaml.cs">
@@ -150,6 +158,7 @@
     <Compile Include="ViewModels\LoginViewModel.cs" />
     <Compile Include="ViewModels\TableManagementViewModel.cs" />
     <Compile Include="ViewModels\ProductManagementViewModel.cs" />
+    <Compile Include="ViewModels\InvoiceManagementViewModel.cs" />
     <Compile Include="ViewModels\StaffManagementViewModel.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
   </ItemGroup>

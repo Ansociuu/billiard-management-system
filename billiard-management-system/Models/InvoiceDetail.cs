@@ -10,6 +10,10 @@ namespace billiard_management_system.Models
         public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal Amount { get; set; }
+
+        public string ItemTypeDisplay => string.Equals(ItemType, "Table", System.StringComparison.OrdinalIgnoreCase)
+            ? "Tiền giờ bàn"
+            : "Sản phẩm / Dịch vụ";
     }
 }
 

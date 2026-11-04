@@ -1,0 +1,494 @@
+<UserControl x:Class="billiard_management_system.Views.InvoiceManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:billiard_management_system.Helpers.Converters"
+             mc:Ignorable="d"
+             d:DesignHeight="720" d:DesignWidth="1050">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
+        <converters:CurrencyConverter x:Key="CurrencyConverter" />
+    </UserControl.Resources>
+
+    <Grid Background="#F1F5F9" Margin="18">
+        <TabControl Style="{StaticResource MaterialDesignFilledTabControl}"
+                    materialDesign:ColorZoneAssist.Mode="PrimaryMid"
+                    Background="Transparent" BorderThickness="0">
+
+            <!-- ========================================================================= -->
+            <!-- TAB 1: TRA CỨU HÓA ĐƠN THANH TOÁN (INVOICES & INVOICE DETAILS)            -->
+            <!-- ========================================================================= -->
+            <TabItem Header="🧾 TRA CỨU HÓA ĐƠN THANH TOÁN">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="6*" />
+                        <ColumnDefinition Width="4*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- CỘT TRÁI: BỘ LỌC & DANH SÁCH HÓA ĐƠN -->
+                    <Border Grid.Column="0" Background="White" CornerRadius="10" Padding="18" Margin="0,0,14,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Header -->
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="DANH SÁCH HÓA ĐƠN THANH TOÁN" FontSize="17" FontWeight="Bold" Foreground="#0F172A" />
+                                    <TextBlock Text="Tra cứu theo mã hóa đơn, số bàn, thu ngân, khoảng ngày và trạng thái (Chỉ đọc dữ liệu lịch sử)"
+                                               FontSize="12" Foreground="#64748B" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <Button HorizontalAlignment="Right" Command="{Binding RefreshCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Height="32" Padding="12,0" Content="Làm mới" />
+                            </Grid>
+
+                            <!-- KPI Summary Cards -->
+                            <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
+                                <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,6,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Tổng số HĐ" FontSize="11" Foreground="#64748B" />
+                                        <TextBlock Text="{Binding TotalInvoicesCount}" FontSize="18" FontWeight="Bold" Foreground="#1E293B" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="3,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Đã thanh toán (Paid)" FontSize="11" Foreground="#047857" />
+                                        <TextBlock Text="{Binding PaidInvoicesCount}" FontSize="18" FontWeight="Bold" Foreground="#059669" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="3,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Chờ thanh toán" FontSize="11" Foreground="#B45309" />
+                                        <TextBlock Text="{Binding PendingInvoicesCount}" FontSize="18" FontWeight="Bold" Foreground="#D97706" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="6,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Doanh thu đã thu" FontSize="11" Foreground="#B91C1C" />
+                                        <TextBlock Text="{Binding FilteredPaidRevenue, Converter={StaticResource CurrencyConverter}}"
+                                                   FontSize="15" FontWeight="Bold" Foreground="#DC2626" />
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
+                            <!-- Filter Bar -->
+                            <Border Grid.Row="2" Background="#F8FAFC" CornerRadius="8" Padding="10" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding InvoiceSearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                                 materialDesign:HintAssist.Hint="Tìm mã HĐ (HD...), bàn (P01...), khách..."
+                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                                 Padding="10,6" FontSize="12" Margin="0,0,8,0" />
+                                        <DatePicker Grid.Column="1"
+                                                    SelectedDate="{Binding InvoiceFromDate}"
+                                                    materialDesign:HintAssist.Hint="Từ ngày"
+                                                    Style="{StaticResource MaterialDesignOutlinedDatePicker}"
+                                                    Padding="8,5" FontSize="12" Margin="0,0,8,0" />
+                                        <DatePicker Grid.Column="2"
+                                                    SelectedDate="{Binding InvoiceToDate}"
+                                                    materialDesign:HintAssist.Hint="Đến ngày"
+                                                    Style="{StaticResource MaterialDesignOutlinedDatePicker}"
+                                                    Padding="8,5" FontSize="12" Margin="0,0,8,0" />
+                                        <Button Grid.Column="3" Command="{Binding SearchInvoicesCommand}"
+                                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                                Background="#00897B" BorderBrush="#00897B"
+                                                Height="34" Padding="12,0" FontSize="12" Content="Tìm kiếm" Margin="0,0,6,0" />
+                                        <Button Grid.Column="4" Command="{Binding ResetInvoiceFilterCommand}"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                Height="34" Padding="10,0" FontSize="12" Content="Đặt lại" />
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Trạng thái HĐ:" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <Button Command="{Binding FilterInvoiceStatusCommand}" CommandParameter="All"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}" Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0" Content="Tất cả" />
+                                        <Button Command="{Binding FilterInvoiceStatusCommand}" CommandParameter="Paid"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}" Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0" Content="Đã thanh toán" />
+                                        <Button Command="{Binding FilterInvoiceStatusCommand}" CommandParameter="Pending"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}" Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0" Content="Chờ thanh toán" />
+                                        <Button Command="{Binding FilterInvoiceStatusCommand}" CommandParameter="Cancelled"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}" Height="26" Padding="10,0" FontSize="11" Content="Đã hủy" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Read-Only DataGrid of Invoices -->
+                            <DataGrid Grid.Row="3"
+                                      ItemsSource="{Binding Invoices}"
+                                      SelectedItem="{Binding SelectedInvoice, Mode=TwoWay}"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      IsReadOnly="True"
+                                      SelectionMode="Single"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      BorderThickness="1" BorderBrush="#E2E8F0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mã HĐ" Binding="{Binding InvoiceCode}" Width="150" FontWeight="Bold" />
+                                    <DataGridTextColumn Header="Bàn" Binding="{Binding TableNumber}" Width="65" FontWeight="Bold" />
+                                    <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName}" Width="*" />
+                                    <DataGridTextColumn Header="Thời gian lập" Binding="{Binding CreatedAt, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}" Width="125" />
+                                    <DataGridTextColumn Header="Tổng tiền" Binding="{Binding TotalAmount, Converter={StaticResource CurrencyConverter}}" Width="115" FontWeight="SemiBold" />
+                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplay}" Width="115" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <!-- CỘT PHẢI: CHI TIẾT HÓA ĐƠN ĐANG CHỌN (CHỈ ĐỌC LỊCH SỬ) -->
+                    <Border Grid.Column="1" Background="White" CornerRadius="10" Padding="18">
+                        <Grid>
+                            <!-- Trạng thái chưa chọn hóa đơn -->
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Visibility="{Binding HasSelectedInvoice, Converter={StaticResource InverseBoolToVisConverter}}">
+                                <materialDesign:PackIcon Kind="ReceiptTextOutline" Width="54" Height="54" Foreground="#CBD5E1" HorizontalAlignment="Center" />
+                                <TextBlock Text="Chọn một hóa đơn bên trái để xem chi tiết" FontSize="14" Foreground="#64748B" Margin="0,10,0,0" />
+                            </StackPanel>
+
+                            <!-- Nội dung chi tiết hóa đơn -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding HasSelectedInvoice, Converter={StaticResource BoolToVisConverter}}">
+                                <StackPanel>
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="{Binding SelectedInvoice.InvoiceCode}" FontSize="17" FontWeight="ExtraBold" Foreground="#0F172A" />
+                                                <Border HorizontalAlignment="Right" Background="#E0F2FE" CornerRadius="10" Padding="8,2">
+                                                    <TextBlock Text="{Binding SelectedInvoice.StatusDisplay}" FontSize="11" FontWeight="Bold" Foreground="#0284C7" />
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock FontSize="12" Foreground="#475569" Margin="0,6,0,0">
+                                                <Run Text="Bàn: " /><Run Text="{Binding SelectedInvoice.TableNumber}" FontWeight="Bold" />
+                                                <Run Text=" • Phiên #" /><Run Text="{Binding SelectedInvoice.SessionId}" FontWeight="SemiBold" />
+                                                <Run Text=" • Khách: " /><Run Text="{Binding SelectedInvoice.CustomerName}" FontWeight="SemiBold" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="12" Foreground="#64748B" Margin="0,3,0,0">
+                                                <Run Text="Thu ngân: " /><Run Text="{Binding SelectedInvoice.CashierName}" FontWeight="SemiBold" />
+                                                <Run Text=" • Phương thức: " /><Run Text="{Binding SelectedInvoice.PaymentMethodDisplay}" FontWeight="SemiBold" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="11.5" Foreground="#64748B" Margin="0,3,0,0">
+                                                <Run Text="Lập lúc: " /><Run Text="{Binding SelectedInvoice.CreatedAt, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}'}" />
+                                                <Run Text=" • Thanh toán lúc: " /><Run Text="{Binding SelectedInvoice.PaidAt, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}', TargetNullValue='Chưa thanh toán'}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="CHI TIẾT DÒNG HÓA ĐƠN (TIỀN BÀN &amp; SẢN PHẨM)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6" />
+                                    <DataGrid ItemsSource="{Binding SelectedInvoiceDetails}"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False"
+                                              CanUserDeleteRows="False"
+                                              IsReadOnly="True"
+                                              MaxHeight="210"
+                                              HeadersVisibility="Column"
+                                              GridLinesVisibility="Horizontal"
+                                              BorderThickness="1" BorderBrush="#E2E8F0" Margin="0,0,0,12">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Loại" Binding="{Binding ItemTypeDisplay}" Width="105" />
+                                            <DataGridTextColumn Header="Nội dung / Mặt hàng" Binding="{Binding Description}" Width="*" />
+                                            <DataGridTextColumn Header="SL/Giờ" Binding="{Binding Quantity}" Width="65" />
+                                            <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPrice, Converter={StaticResource CurrencyConverter}}" Width="95" />
+                                            <DataGridTextColumn Header="Thành tiền" Binding="{Binding Amount, Converter={StaticResource CurrencyConverter}}" Width="100" FontWeight="SemiBold" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <TextBlock Text="CHI TIẾT TÁCH KHUNG GIỜ BÀN (SessionPricingDetails)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6" />
+                                    <DataGrid ItemsSource="{Binding SelectedInvoicePricingSegments}"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False"
+                                              CanUserDeleteRows="False"
+                                              IsReadOnly="True"
+                                              MaxHeight="150"
+                                              HeadersVisibility="Column"
+                                              GridLinesVisibility="Horizontal"
+                                              BorderThickness="1" BorderBrush="#E2E8F0" Margin="0,0,0,12">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Khung giờ" Binding="{Binding TimeRangeDisplay}" Width="140" />
+                                            <DataGridTextColumn Header="Quy tắc &amp; KM" Binding="{Binding RuleSummaryDisplay}" Width="*" />
+                                            <DataGridTextColumn Header="Phút" Binding="{Binding DurationMinutes}" Width="55" />
+                                            <DataGridTextColumn Header="Giá/h" Binding="{Binding FinalHourlyRate, Converter={StaticResource CurrencyConverter}}" Width="90" />
+                                            <DataGridTextColumn Header="Tiền" Binding="{Binding Amount, Converter={StaticResource CurrencyConverter}}" Width="95" FontWeight="SemiBold" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <!-- Tổng hợp tài chính hóa đơn -->
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12">
+                                        <StackPanel>
+                                            <Grid Margin="0,2">
+                                                <TextBlock Text="Tổng tiền giờ bàn:" FontSize="12.5" Foreground="#475569" />
+                                                <TextBlock Text="{Binding SelectedInvoice.TableAmount, Converter={StaticResource CurrencyConverter}}"
+                                                           FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Grid Margin="0,2">
+                                                <TextBlock Text="Tổng tiền sản phẩm (F&amp;B):" FontSize="12.5" Foreground="#475569" />
+                                                <TextBlock Text="{Binding SelectedInvoice.ServiceAmount, Converter={StaticResource CurrencyConverter}}"
+                                                           FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Grid Margin="0,2">
+                                                <TextBlock Text="Giảm giá hóa đơn:" FontSize="12.5" Foreground="#475569" />
+                                                <TextBlock Text="{Binding SelectedInvoice.DiscountAmount, Converter={StaticResource CurrencyConverter}}"
+                                                           FontSize="12.5" FontWeight="SemiBold" Foreground="#059669" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Separator Margin="0,6" />
+                                            <Grid>
+                                                <TextBlock Text="TỔNG THANH TOÁN:" FontSize="14" FontWeight="Bold" Foreground="#0F172A" />
+                                                <TextBlock Text="{Binding SelectedInvoice.TotalAmount, Converter={StaticResource CurrencyConverter}}"
+                                                           FontSize="18" FontWeight="ExtraBold" Foreground="#DC2626" HorizontalAlignment="Right" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Nếu hóa đơn đang Pending: cho phép thanh toán; nếu đã Paid: thông báo khóa chỉnh sửa -->
+                                    <Border Margin="0,10,0,0" Padding="10" CornerRadius="8" Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1"
+                                            Visibility="{Binding IsSelectedInvoicePaid, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBlock Text="🔒 Hóa đơn đã hoàn tất thanh toán. Dữ liệu lịch sử được bảo toàn và không cho phép chỉnh sửa trực tiếp."
+                                                   FontSize="11.5" Foreground="#047857" TextWrapping="Wrap" />
+                                    </Border>
+
+                                    <Border Margin="0,10,0,0" Padding="10" CornerRadius="8" Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1"
+                                            Visibility="{Binding IsSelectedInvoicePending, Converter={StaticResource BoolToVisConverter}}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox Grid.Column="0"
+                                                      ItemsSource="{Binding AllowedPaymentMethods}"
+                                                      SelectedItem="{Binding PendingPaymentMethod, Mode=TwoWay}"
+                                                      materialDesign:HintAssist.Hint="Phương thức TT"
+                                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                                      Padding="8,5" FontSize="12" Margin="0,0,8,0" />
+                                            <Button Grid.Column="1" Command="{Binding PayPendingInvoiceCommand}"
+                                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                                    Background="#DC2626" BorderBrush="#DC2626"
+                                                    Height="34" Padding="12,0" FontSize="12" Content="Thanh toán HĐ chờ" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 2: LỊCH SỬ PHIÊN CHƠI (SESSIONS HISTORY)                              -->
+            <!-- ========================================================================= -->
+            <TabItem Header="🎱 LỊCH SỬ PHIÊN CHƠI">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="6*" />
+                        <ColumnDefinition Width="4*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- CỘT TRÁI: BỘ LỌC & DANH SÁCH PHIÊN CHƠI -->
+                    <Border Grid.Column="0" Background="White" CornerRadius="10" Padding="18" Margin="0,0,14,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="LỊCH SỬ PHIÊN CHƠI TẠI BÀN" FontSize="17" FontWeight="Bold" Foreground="#0F172A" />
+                                    <TextBlock Text="Tra cứu phiên chơi theo số bàn, loại bàn, khách hàng, khoảng ngày và trạng thái"
+                                               FontSize="12" Foreground="#64748B" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <Button HorizontalAlignment="Right" Command="{Binding SearchSessionsCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Height="32" Padding="12,0" Content="Làm mới" />
+                            </Grid>
+
+                            <Border Grid.Row="1" Background="#F8FAFC" CornerRadius="8" Padding="10" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding SessionSearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                                 materialDesign:HintAssist.Hint="Tìm bàn (P01...), mã phiên, khách hàng, mã HĐ..."
+                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                                 Padding="10,6" FontSize="12" Margin="0,0,8,0" />
+                                        <DatePicker Grid.Column="1"
+                                                    SelectedDate="{Binding SessionFromDate}"
+                                                    materialDesign:HintAssist.Hint="Từ ngày"
+                                                    Style="{StaticResource MaterialDesignOutlinedDatePicker}"
+                                                    Padding="8,5" FontSize="12" Margin="0,0,8,0" />
+                                        <DatePicker Grid.Column="2"
+                                                    SelectedDate="{Binding SessionToDate}"
+                                                    materialDesign:HintAssist.Hint="Đến ngày"
+                                                    Style="{StaticResource MaterialDesignOutlinedDatePicker}"
+                                                    Padding="8,5" FontSize="12" Margin="0,0,8,0" />
+                                        <Button Grid.Column="3" Command="{Binding SearchSessionsCommand}"
+                                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                                Background="#00897B" BorderBrush="#00897B"
+                                                Height="34" Padding="12,0" FontSize="12" Content="Lọc phiên" Margin="0,0,6,0" />
+                                        <Button Grid.Column="4" Command="{Binding ResetSessionFilterCommand}"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                Height="34" Padding="10,0" FontSize="12" Content="Đặt lại" />
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Trạng thái phiên:" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <Button Command="{Binding FilterSessionStatusCommand}" CommandParameter="All"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}" Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0" Content="Tất cả" />
+                                        <Button Command="{Binding FilterSessionStatusCommand}" CommandParameter="Active"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}" Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0" Content="Đang chơi (Active)" />
+                                        <Button Command="{Binding FilterSessionStatusCommand}" CommandParameter="Completed"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}" Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0" Content="Đã hoàn tất" />
+                                        <Button Command="{Binding FilterSessionStatusCommand}" CommandParameter="Cancelled"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}" Height="26" Padding="10,0" FontSize="11" Content="Đã hủy" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <DataGrid Grid.Row="2"
+                                      ItemsSource="{Binding SessionsHistory}"
+                                      SelectedItem="{Binding SelectedHistorySession, Mode=TwoWay}"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      IsReadOnly="True"
+                                      SelectionMode="Single"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      BorderThickness="1" BorderBrush="#E2E8F0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mã phiên" Binding="{Binding SessionId}" Width="75" FontWeight="Bold" />
+                                    <DataGridTextColumn Header="Bàn" Binding="{Binding TableNumber}" Width="65" FontWeight="Bold" />
+                                    <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName}" Width="*" />
+                                    <DataGridTextColumn Header="Bắt đầu" Binding="{Binding StartTime, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}" Width="125" />
+                                    <DataGridTextColumn Header="Thời lượng" Binding="{Binding DurationDisplay}" Width="85" />
+                                    <DataGridTextColumn Header="Tiền bàn" Binding="{Binding TableAmount, Converter={StaticResource CurrencyConverter}}" Width="100" />
+                                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplay}" Width="105" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <!-- CỘT PHẢI: CHI TIẾT PHIÊN CHƠI -->
+                    <Border Grid.Column="1" Background="White" CornerRadius="10" Padding="18">
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Visibility="{Binding HasSelectedHistorySession, Converter={StaticResource InverseBoolToVisConverter}}">
+                                <materialDesign:PackIcon Kind="Billiards" Width="54" Height="54" Foreground="#CBD5E1" HorizontalAlignment="Center" />
+                                <TextBlock Text="Chọn một phiên chơi bên trái để xem chi tiết" FontSize="14" Foreground="#64748B" Margin="0,10,0,0" />
+                            </StackPanel>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding HasSelectedHistorySession, Converter={StaticResource BoolToVisConverter}}">
+                                <StackPanel>
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock FontSize="16" FontWeight="ExtraBold" Foreground="#0F172A">
+                                                    <Run Text="Phiên #" /><Run Text="{Binding SelectedHistorySession.SessionId}" />
+                                                    <Run Text=" - Bàn " /><Run Text="{Binding SelectedHistorySession.TableNumber}" />
+                                                </TextBlock>
+                                                <Border HorizontalAlignment="Right" Background="#E0F2FE" CornerRadius="10" Padding="8,2">
+                                                    <TextBlock Text="{Binding SelectedHistorySession.StatusDisplay}" FontSize="11" FontWeight="Bold" Foreground="#0284C7" />
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock FontSize="12" Foreground="#475569" Margin="0,6,0,0">
+                                                <Run Text="Loại bàn: " /><Run Text="{Binding SelectedHistorySession.TypeName}" FontWeight="SemiBold" />
+                                                <Run Text=" • Mã HĐ: " /><Run Text="{Binding SelectedHistorySession.InvoiceCode}" FontWeight="Bold" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="12" Foreground="#64748B" Margin="0,3,0,0">
+                                                <Run Text="Nhân viên mở: " /><Run Text="{Binding SelectedHistorySession.StaffName}" FontWeight="SemiBold" />
+                                                <Run Text=" • Khách: " /><Run Text="{Binding SelectedHistorySession.CustomerName}" FontWeight="SemiBold" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="11.5" Foreground="#64748B" Margin="0,3,0,0">
+                                                <Run Text="Bắt đầu: " /><Run Text="{Binding SelectedHistorySession.StartTime, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}'}" />
+                                                <Run Text=" • Kết thúc: " /><Run Text="{Binding SelectedHistorySession.EndTime, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}', TargetNullValue='Đang chơi'}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="KHOẢNG THỜI GIAN TÍNH TIỀN BÀN (SessionPricingDetails)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6" />
+                                    <DataGrid ItemsSource="{Binding SelectedSessionPricingSegments}"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False"
+                                              CanUserDeleteRows="False"
+                                              IsReadOnly="True"
+                                              MaxHeight="170"
+                                              HeadersVisibility="Column"
+                                              GridLinesVisibility="Horizontal"
+                                              BorderThickness="1" BorderBrush="#E2E8F0" Margin="0,0,0,12">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Khung giờ" Binding="{Binding TimeRangeDisplay}" Width="140" />
+                                            <DataGridTextColumn Header="Quy tắc &amp; KM" Binding="{Binding RuleSummaryDisplay}" Width="*" />
+                                            <DataGridTextColumn Header="Phút" Binding="{Binding DurationMinutes}" Width="55" />
+                                            <DataGridTextColumn Header="Tiền" Binding="{Binding Amount, Converter={StaticResource CurrencyConverter}}" Width="95" FontWeight="SemiBold" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <TextBlock Text="SẢN PHẨM &amp; DỊCH VỤ ĐÃ GỌI (SessionProducts)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6" />
+                                    <DataGrid ItemsSource="{Binding SelectedSessionProducts}"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False"
+                                              CanUserDeleteRows="False"
+                                              IsReadOnly="True"
+                                              MaxHeight="170"
+                                              HeadersVisibility="Column"
+                                              GridLinesVisibility="Horizontal"
+                                              BorderThickness="1" BorderBrush="#E2E8F0" Margin="0,0,0,12">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Tên sản phẩm" Binding="{Binding ProductName}" Width="*" />
+                                            <DataGridTextColumn Header="SL" Binding="{Binding Quantity}" Width="55" />
+                                            <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPrice, Converter={StaticResource CurrencyConverter}}" Width="95" />
+                                            <DataGridTextColumn Header="Thành tiền" Binding="{Binding Amount, Converter={StaticResource CurrencyConverter}}" Width="100" FontWeight="SemiBold" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12">
+                                        <StackPanel>
+                                            <Grid Margin="0,2">
+                                                <TextBlock Text="Tiền giờ bàn:" FontSize="12.5" Foreground="#475569" />
+                                                <TextBlock Text="{Binding SelectedHistorySession.TableAmount, Converter={StaticResource CurrencyConverter}}"
+                                                           FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Grid Margin="0,2">
+                                                <TextBlock Text="Tiền sản phẩm (F&amp;B):" FontSize="12.5" Foreground="#475569" />
+                                                <TextBlock Text="{Binding SelectedHistorySession.ServiceAmount, Converter={StaticResource CurrencyConverter}}"
+                                                           FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <Separator Margin="0,6" />
+                                            <Grid>
+                                                <TextBlock Text="TỔNG PHIÊN CHƠI:" FontSize="14" FontWeight="Bold" Foreground="#0F172A" />
+                                                <TextBlock Text="{Binding SelectedHistorySession.TotalSessionAmount, Converter={StaticResource CurrencyConverter}}"
+                                                           FontSize="17" FontWeight="ExtraBold" Foreground="#00897B" HorizontalAlignment="Right" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>
