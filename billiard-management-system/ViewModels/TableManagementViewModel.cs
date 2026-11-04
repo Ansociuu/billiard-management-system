@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -18,6 +19,7 @@ namespace billiard_management_system.ViewModels
         private readonly ITableService _tableService;
         private readonly IProductService _productService;
         private readonly IOrderService _orderService;
+        private readonly IPricingRuleService _pricingRuleService;
         private readonly DispatcherTimer _timer;
 
         private ObservableCollection<BilliardTable> _allTables = new ObservableCollection<BilliardTable>();
@@ -57,18 +59,45 @@ namespace billiard_management_system.ViewModels
         private string _formTypeDescription = string.Empty;
         private bool _formTypeIsActive = true;
 
+        // Quản lý Quy tắc giá bàn & Khuyến mãi (CRUD TablePricingRules - Issue #15)
+        private ObservableCollection<TablePricingRule> _allPricingRules = new ObservableCollection<TablePricingRule>();
+        private ObservableCollection<TablePricingRule> _filteredPricingRules = new ObservableCollection<TablePricingRule>();
+        private string _ruleTypeFilter = "All";
+        private string _ruleStatusFilter = "All";
+
+        private TablePricingRule _selectedPricingRule;
+        private bool _isRuleEditMode;
+        private long _editingPricingRuleId;
+        private string _formRuleName = string.Empty;
+        private int _formRuleTableTypeId = 1;
+        private string _formRuleType = "BaseRate";
+        private string _formRuleDayType = "Weekday";
+        private bool _formRuleIsAllDay = true;
+        private string _formRuleStartTimeText = "08:00";
+        private string _formRuleEndTimeText = "17:00";
+        private string _formRuleHourlyRateText = "50000";
+        private string _formRuleDiscountType = "Percentage";
+        private string _formRuleDiscountValueText = "10";
+        private DateTime _formRuleEffectiveFrom = DateTime.Today;
+        private bool _formRuleHasEndDate;
+        private DateTime? _formRuleEffectiveTo;
+        private string _formRulePriorityText = "1";
+        private bool _formRuleIsActive = true;
+
         public event Action<string, string> NotificationRequested;
 
         public TableManagementViewModel(
             ITableService tableService = null,
             IProductService productService = null,
-            IOrderService orderService = null)
+            IOrderService orderService = null,
+            IPricingRuleService pricingRuleService = null)
         {
             _tableService = tableService ?? new TableService();
             _productService = productService ?? new ProductService();
             _orderService = orderService ?? new OrderService();
+            _pricingRuleService = pricingRuleService ?? new PricingRuleService();
 
-            Title = "Quản lý Bàn Chơi & Loại Bàn";
+            Title = "Quản lý Bàn Chơi, Loại Bàn & Quy tắc Giá";
 
             // Khởi tạo các Commands vận hành bàn
             RefreshCommand = new AsyncRelayCommand(LoadDataAsync);
@@ -91,6 +120,13 @@ namespace billiard_management_system.ViewModels
             // Commands CRUD Loại bàn (TableTypes)
             PrepareNewTableTypeCommand = new RelayCommand(ExecutePrepareNewTableType);
             SaveTableTypeCommand = new AsyncRelayCommand(ExecuteSaveTableTypeAsync);
+
+            // Commands CRUD Quy tắc giá & Khuyến mãi (TablePricingRules - Issue #15)
+            FilterRuleTypeCommand = new RelayCommand<string>(OnFilterRuleType);
+            FilterRuleStatusCommand = new RelayCommand<string>(OnFilterRuleStatus);
+            PrepareNewPricingRuleCommand = new RelayCommand(ExecutePrepareNewPricingRule);
+            SavePricingRuleCommand = new AsyncRelayCommand(ExecuteSavePricingRuleAsync);
+            TogglePricingRuleActiveCommand = new AsyncRelayCommand(ExecuteTogglePricingRuleActiveAsync);
 
             // Timer cập nhật đồng hồ bàn chơi mỗi giây
             _timer = new DispatcherTimer
@@ -335,6 +371,217 @@ namespace billiard_management_system.ViewModels
 
         #endregion
 
+        #region Properties - CRUD Quy tắc Giá bàn & Khuyến mãi (Issue #15)
+
+        public List<string> AllowedRuleTypes { get; } = new List<string> { "BaseRate", "Promotion" };
+        public List<string> AllowedDayTypes { get; } = new List<string> { "Weekday", "Weekend", "Holiday", "Any" };
+        public List<string> AllowedDiscountTypes { get; } = new List<string> { "Percentage", "FixedAmount" };
+
+        public ObservableCollection<TablePricingRule> FilteredPricingRules
+        {
+            get => _filteredPricingRules;
+            set => SetProperty(ref _filteredPricingRules, value);
+        }
+
+        public int ActiveBaseRulesCount => _allPricingRules.Count(r => r.IsActive && !r.IsPromotion);
+        public int ActivePromotionsCount => _allPricingRules.Count(r => r.IsActive && r.IsPromotion);
+        public int InactiveRulesCount => _allPricingRules.Count(r => !r.IsActive);
+
+        public TablePricingRule SelectedPricingRule
+        {
+            get => _selectedPricingRule;
+            set
+            {
+                if (SetProperty(ref _selectedPricingRule, value) && value != null)
+                {
+                    ClearError();
+                    _editingPricingRuleId = value.PricingRuleId;
+                    FormRuleName = value.RuleName;
+                    FormRuleTableTypeId = value.TableTypeId;
+                    FormRuleType = value.RuleType;
+                    FormRuleDayType = value.DayType;
+
+                    if (value.StartTime.HasValue && value.EndTime.HasValue)
+                    {
+                        FormRuleIsAllDay = false;
+                        FormRuleStartTimeText = value.StartTime.Value.ToString(@"hh\:mm");
+                        FormRuleEndTimeText = value.EndTime.Value.ToString(@"hh\:mm");
+                    }
+                    else
+                    {
+                        FormRuleIsAllDay = true;
+                        FormRuleStartTimeText = "08:00";
+                        FormRuleEndTimeText = "17:00";
+                    }
+
+                    FormRuleHourlyRateText = (value.HourlyRate ?? 50000m).ToString("0", CultureInfo.InvariantCulture);
+                    FormRuleDiscountType = string.IsNullOrWhiteSpace(value.DiscountType) ? "Percentage" : value.DiscountType;
+                    FormRuleDiscountValueText = (value.DiscountValue ?? 10m).ToString("0.##", CultureInfo.InvariantCulture);
+                    FormRuleEffectiveFrom = value.EffectiveFrom;
+                    FormRuleHasEndDate = value.EffectiveTo.HasValue;
+                    FormRuleEffectiveTo = value.EffectiveTo ?? DateTime.Today.AddMonths(1);
+                    FormRulePriorityText = value.Priority.ToString(CultureInfo.InvariantCulture);
+                    FormRuleIsActive = value.IsActive;
+
+                    IsRuleEditMode = true;
+                    OnPropertyChanged(nameof(RuleFormTitle));
+                    OnPropertyChanged(nameof(ToggleRuleActiveButtonText));
+                }
+            }
+        }
+
+        public bool IsRuleEditMode
+        {
+            get => _isRuleEditMode;
+            set
+            {
+                if (SetProperty(ref _isRuleEditMode, value))
+                {
+                    OnPropertyChanged(nameof(RuleFormTitle));
+                    OnPropertyChanged(nameof(RuleSaveButtonText));
+                }
+            }
+        }
+
+        public string RuleFormTitle => IsRuleEditMode ? $"Chỉnh sửa Quy tắc: #{_editingPricingRuleId}" : "Tạo Quy tắc Giá / Khuyến mãi mới";
+        public string RuleSaveButtonText => IsRuleEditMode ? "CẬP NHẬT QUY TẮC" : "THÊM QUY TẮC MỚI";
+        public string ToggleRuleActiveButtonText => FormRuleIsActive ? "Tạm ngưng áp dụng (Không tính tiền)" : "Kích hoạt áp dụng lại";
+
+        public string FormRuleName
+        {
+            get => _formRuleName;
+            set => SetProperty(ref _formRuleName, value);
+        }
+
+        public int FormRuleTableTypeId
+        {
+            get => _formRuleTableTypeId;
+            set => SetProperty(ref _formRuleTableTypeId, value);
+        }
+
+        public string FormRuleType
+        {
+            get => _formRuleType;
+            set
+            {
+                if (SetProperty(ref _formRuleType, value))
+                {
+                    OnPropertyChanged(nameof(IsBaseRateRule));
+                    OnPropertyChanged(nameof(IsPromotionRule));
+                }
+            }
+        }
+
+        public bool IsBaseRateRule => string.Equals(_formRuleType, "BaseRate", StringComparison.OrdinalIgnoreCase);
+        public bool IsPromotionRule => string.Equals(_formRuleType, "Promotion", StringComparison.OrdinalIgnoreCase);
+
+        public string FormRuleDayType
+        {
+            get => _formRuleDayType;
+            set => SetProperty(ref _formRuleDayType, value);
+        }
+
+        public bool FormRuleIsAllDay
+        {
+            get => _formRuleIsAllDay;
+            set
+            {
+                if (SetProperty(ref _formRuleIsAllDay, value))
+                {
+                    OnPropertyChanged(nameof(IsCustomTimeSlot));
+                }
+            }
+        }
+
+        public bool IsCustomTimeSlot => !_formRuleIsAllDay;
+
+        public string FormRuleStartTimeText
+        {
+            get => _formRuleStartTimeText;
+            set => SetProperty(ref _formRuleStartTimeText, value);
+        }
+
+        public string FormRuleEndTimeText
+        {
+            get => _formRuleEndTimeText;
+            set => SetProperty(ref _formRuleEndTimeText, value);
+        }
+
+        public string FormRuleHourlyRateText
+        {
+            get => _formRuleHourlyRateText;
+            set => SetProperty(ref _formRuleHourlyRateText, value);
+        }
+
+        public string FormRuleDiscountType
+        {
+            get => _formRuleDiscountType;
+            set
+            {
+                if (SetProperty(ref _formRuleDiscountType, value))
+                {
+                    OnPropertyChanged(nameof(DiscountValueHint));
+                }
+            }
+        }
+
+        public string DiscountValueHint => string.Equals(_formRuleDiscountType, "Percentage", StringComparison.OrdinalIgnoreCase)
+            ? "Mức giảm phần trăm (1 - 100%) *"
+            : "Số tiền giảm cố định (VNĐ/giờ > 0) *";
+
+        public string FormRuleDiscountValueText
+        {
+            get => _formRuleDiscountValueText;
+            set => SetProperty(ref _formRuleDiscountValueText, value);
+        }
+
+        public DateTime FormRuleEffectiveFrom
+        {
+            get => _formRuleEffectiveFrom;
+            set => SetProperty(ref _formRuleEffectiveFrom, value);
+        }
+
+        public bool FormRuleHasEndDate
+        {
+            get => _formRuleHasEndDate;
+            set
+            {
+                if (SetProperty(ref _formRuleHasEndDate, value))
+                {
+                    if (value && !_formRuleEffectiveTo.HasValue)
+                    {
+                        FormRuleEffectiveTo = _formRuleEffectiveFrom.AddMonths(1);
+                    }
+                }
+            }
+        }
+
+        public DateTime? FormRuleEffectiveTo
+        {
+            get => _formRuleEffectiveTo;
+            set => SetProperty(ref _formRuleEffectiveTo, value);
+        }
+
+        public string FormRulePriorityText
+        {
+            get => _formRulePriorityText;
+            set => SetProperty(ref _formRulePriorityText, value);
+        }
+
+        public bool FormRuleIsActive
+        {
+            get => _formRuleIsActive;
+            set
+            {
+                if (SetProperty(ref _formRuleIsActive, value))
+                {
+                    OnPropertyChanged(nameof(ToggleRuleActiveButtonText));
+                }
+            }
+        }
+
+        #endregion
+
         #region Commands
 
         public ICommand RefreshCommand { get; }
@@ -355,6 +602,12 @@ namespace billiard_management_system.ViewModels
 
         public ICommand PrepareNewTableTypeCommand { get; }
         public ICommand SaveTableTypeCommand { get; }
+
+        public ICommand FilterRuleTypeCommand { get; }
+        public ICommand FilterRuleStatusCommand { get; }
+        public ICommand PrepareNewPricingRuleCommand { get; }
+        public ICommand SavePricingRuleCommand { get; }
+        public ICommand TogglePricingRuleActiveCommand { get; }
 
         #endregion
 
@@ -381,6 +634,13 @@ namespace billiard_management_system.ViewModels
 
                 var products = await _productService.GetProductsAsync();
                 AvailableProducts = new ObservableCollection<Product>(products);
+
+                var rules = await _pricingRuleService.GetPricingRulesAsync(includeInactive: true);
+                _allPricingRules = new ObservableCollection<TablePricingRule>(rules);
+                ApplyPricingRuleFilter();
+                OnPropertyChanged(nameof(ActiveBaseRulesCount));
+                OnPropertyChanged(nameof(ActivePromotionsCount));
+                OnPropertyChanged(nameof(InactiveRulesCount));
 
                 ApplyFilter();
                 UpdateSummaryStats();
@@ -825,6 +1085,226 @@ namespace billiard_management_system.ViewModels
                         ErrorMessage = msg;
                         Notify(msg, "Error");
                     }
+                }
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        #endregion
+
+        #region Methods - CRUD Quy tắc Giá bàn & Khuyến mãi (Issue #15)
+
+        private void OnFilterRuleType(string ruleType)
+        {
+            _ruleTypeFilter = string.IsNullOrWhiteSpace(ruleType) ? "All" : ruleType;
+            ApplyPricingRuleFilter();
+        }
+
+        private void OnFilterRuleStatus(string status)
+        {
+            _ruleStatusFilter = string.IsNullOrWhiteSpace(status) ? "All" : status;
+            ApplyPricingRuleFilter();
+        }
+
+        private void ApplyPricingRuleFilter()
+        {
+            var query = _allPricingRules.AsEnumerable();
+
+            if (!string.Equals(_ruleTypeFilter, "All", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(r => string.Equals(r.RuleType, _ruleTypeFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (string.Equals(_ruleStatusFilter, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(r => r.IsActive);
+            }
+            else if (string.Equals(_ruleStatusFilter, "Inactive", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(r => !r.IsActive);
+            }
+
+            FilteredPricingRules = new ObservableCollection<TablePricingRule>(query);
+        }
+
+        private void ExecutePrepareNewPricingRule()
+        {
+            ClearError();
+            _selectedPricingRule = null;
+            OnPropertyChanged(nameof(SelectedPricingRule));
+
+            _editingPricingRuleId = 0;
+            FormRuleName = string.Empty;
+            FormRuleTableTypeId = TableTypes.FirstOrDefault()?.TableTypeId ?? 1;
+            FormRuleType = "BaseRate";
+            FormRuleDayType = "Weekday";
+            FormRuleIsAllDay = true;
+            FormRuleStartTimeText = "08:00";
+            FormRuleEndTimeText = "17:00";
+            FormRuleHourlyRateText = "50000";
+            FormRuleDiscountType = "Percentage";
+            FormRuleDiscountValueText = "10";
+            FormRuleEffectiveFrom = DateTime.Today;
+            FormRuleHasEndDate = false;
+            FormRuleEffectiveTo = DateTime.Today.AddMonths(1);
+            FormRulePriorityText = "1";
+            FormRuleIsActive = true;
+
+            IsRuleEditMode = false;
+            OnPropertyChanged(nameof(RuleFormTitle));
+        }
+
+        private async Task ExecuteSavePricingRuleAsync()
+        {
+            if (IsBusy) return;
+            ClearError();
+
+            // 1. Parse độ ưu tiên
+            if (!int.TryParse(FormRulePriorityText?.Trim(), out int priority) || priority < 1)
+            {
+                ErrorMessage = "Độ ưu tiên (Priority) phải là số nguyên dương (>= 1).";
+                return;
+            }
+
+            // 2. Parse khung giờ nếu không phải cả ngày
+            TimeSpan? startTime = null;
+            TimeSpan? endTime = null;
+            if (!FormRuleIsAllDay)
+            {
+                if (!TimeSpan.TryParseExact(FormRuleStartTimeText?.Trim(), new[] { @"hh\:mm", @"h\:mm", @"hh\:mm\:ss" }, CultureInfo.InvariantCulture, out TimeSpan parsedStart))
+                {
+                    ErrorMessage = "Giờ bắt đầu không đúng định dạng HH:mm (ví dụ: 08:00 hoặc 18:30).";
+                    return;
+                }
+
+                if (!TimeSpan.TryParseExact(FormRuleEndTimeText?.Trim(), new[] { @"hh\:mm", @"h\:mm", @"hh\:mm\:ss" }, CultureInfo.InvariantCulture, out TimeSpan parsedEnd))
+                {
+                    ErrorMessage = "Giờ kết thúc không đúng định dạng HH:mm (ví dụ: 17:00 hoặc 23:30).";
+                    return;
+                }
+
+                startTime = parsedStart;
+                endTime = parsedEnd;
+            }
+
+            // 3. Parse giá giờ hoặc mức giảm khuyến mãi
+            decimal? hourlyRate = null;
+            string discountType = null;
+            decimal? discountValue = null;
+
+            if (IsBaseRateRule)
+            {
+                string cleanRate = (FormRuleHourlyRateText ?? string.Empty).Replace(",", "").Replace(".", "").Trim();
+                if (!decimal.TryParse(cleanRate, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal parsedRate) || parsedRate <= 0)
+                {
+                    ErrorMessage = "Đơn giá giờ cơ bản (HourlyRate) phải là số lớn hơn 0 VNĐ!";
+                    return;
+                }
+                hourlyRate = parsedRate;
+            }
+            else
+            {
+                discountType = FormRuleDiscountType;
+                string cleanDisc = (FormRuleDiscountValueText ?? string.Empty).Replace(",", ".").Trim();
+                if (!decimal.TryParse(cleanDisc, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal parsedDisc) || parsedDisc <= 0)
+                {
+                    ErrorMessage = "Giá trị giảm giá khuyến mãi phải lớn hơn 0!";
+                    return;
+                }
+                discountValue = parsedDisc;
+            }
+
+            var model = new TablePricingRule
+            {
+                PricingRuleId = _editingPricingRuleId,
+                TableTypeId = FormRuleTableTypeId,
+                RuleName = FormRuleName,
+                RuleType = FormRuleType,
+                DayType = FormRuleDayType,
+                StartTime = startTime,
+                EndTime = endTime,
+                HourlyRate = hourlyRate,
+                DiscountType = discountType,
+                DiscountValue = discountValue,
+                EffectiveFrom = FormRuleEffectiveFrom.Date,
+                EffectiveTo = FormRuleHasEndDate ? FormRuleEffectiveTo?.Date : null,
+                Priority = priority,
+                IsActive = FormRuleIsActive
+            };
+
+            IsBusy = true;
+            try
+            {
+                if (IsRuleEditMode)
+                {
+                    var (success, msg) = await _pricingRuleService.UpdatePricingRuleAsync(model);
+                    if (success)
+                    {
+                        Notify(msg, "Success");
+                        await LoadDataAsync();
+                    }
+                    else
+                    {
+                        ErrorMessage = msg;
+                        Notify(msg, "Error");
+                    }
+                }
+                else
+                {
+                    var (success, msg, newId) = await _pricingRuleService.CreatePricingRuleAsync(model);
+                    if (success)
+                    {
+                        Notify(msg, "Success");
+                        ExecutePrepareNewPricingRule();
+                        await LoadDataAsync();
+                    }
+                    else
+                    {
+                        ErrorMessage = msg;
+                        Notify(msg, "Error");
+                    }
+                }
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private async Task ExecuteTogglePricingRuleActiveAsync()
+        {
+            if (!IsRuleEditMode || _editingPricingRuleId <= 0) return;
+
+            bool targetActive = !FormRuleIsActive;
+            string actionDesc = targetActive
+                ? "kích hoạt áp dụng lại"
+                : "tạm ngưng áp dụng (không dùng để tính tiền)";
+
+            var confirm = MessageBox.Show(
+                $"Bạn có chắc chắn muốn {actionDesc} quy tắc [{FormRuleName}] không?",
+                "Xác nhận trạng thái quy tắc giá",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (confirm != MessageBoxResult.Yes) return;
+
+            IsBusy = true;
+            try
+            {
+                var (success, msg) = await _pricingRuleService.TogglePricingRuleActiveAsync(_editingPricingRuleId, targetActive);
+                if (success)
+                {
+                    FormRuleIsActive = targetActive;
+                    Notify(msg, "Success");
+                    await LoadDataAsync();
+                }
+                else
+                {
+                    ErrorMessage = msg;
+                    Notify(msg, "Error");
                 }
             }
             finally

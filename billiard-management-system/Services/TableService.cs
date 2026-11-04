@@ -26,10 +26,12 @@ namespace billiard_management_system.Services
     public class TableService : ITableService
     {
         private readonly IAuditLogService _auditLogService;
+        private readonly IPricingRuleService _pricingRuleService;
 
-        public TableService(IAuditLogService auditLogService = null)
+        public TableService(IAuditLogService auditLogService = null, IPricingRuleService pricingRuleService = null)
         {
             _auditLogService = auditLogService ?? new AuditLogService();
+            _pricingRuleService = pricingRuleService ?? new PricingRuleService(_auditLogService);
         }
 
         public async Task<List<BilliardTable>> GetAllTablesAsync(bool includeInactive = false)
@@ -49,7 +51,11 @@ namespace billiard_management_system.Services
                         tt.TypeName,
                         COALESCE(
                             (SELECT HourlyRate FROM TablePricingRules tpr 
-                             WHERE tpr.TableTypeId = t.TableTypeId AND tpr.IsActive = TRUE AND tpr.RuleType = 'BaseRate'
+                             WHERE tpr.TableTypeId = t.TableTypeId
+                               AND tpr.IsActive = TRUE
+                               AND tpr.RuleType = 'BaseRate'
+                               AND tpr.EffectiveFrom <= CURDATE()
+                               AND (tpr.EffectiveTo IS NULL OR tpr.EffectiveTo >= CURDATE())
                              ORDER BY tpr.Priority DESC LIMIT 1), 
                             50000.00
                         ) AS HourlyRate,
@@ -103,6 +109,19 @@ namespace billiard_management_system.Services
                         tables.Add(table);
                     }
                 }
+            }
+
+            // Áp dụng quy tắc giá theo loại ngày / khung giờ / khuyến mãi đang hoạt động (IsActive = TRUE)
+            var rateByTypeCache = new Dictionary<int, decimal>();
+            DateTime now = DateTime.Now;
+            foreach (var table in tables)
+            {
+                if (!rateByTypeCache.TryGetValue(table.TableTypeId, out decimal effectiveRate))
+                {
+                    effectiveRate = await _pricingRuleService.GetEffectiveHourlyRateAsync(table.TableTypeId, now);
+                    rateByTypeCache[table.TableTypeId] = effectiveRate;
+                }
+                table.HourlyRate = effectiveRate;
             }
 
             return tables;
