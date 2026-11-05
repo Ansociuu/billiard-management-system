@@ -7,135 +7,290 @@
         xmlns:helpers="clr-namespace:billiard_management_system.Helpers"
         mc:Ignorable="d"
         Title="Đăng Nhập - Hệ Thống Quản Lý Quán Billiard" 
-        Height="560" Width="440"
+        Height="630" Width="440"
         WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
         ResizeMode="NoResize"
-        Background="#0F172A">
+        PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewKeyUp="Window_PreviewKeyUp">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
     </Window.Resources>
 
     <Grid>
-        <!-- Background subtle accent card -->
-        <Border Margin="24" Background="White" CornerRadius="16" Padding="32">
+        <!-- CARD TRẮNG BO TRÒN HIỆN ĐẠI CÙNG HIỆU ỨNG ĐỔ BÓNG DROP SHADOW -->
+        <Border Margin="16" Background="White" CornerRadius="16">
             <Border.Effect>
-                <DropShadowEffect BlurRadius="25" Color="#000000" Opacity="0.25" ShadowDepth="8" />
+                <DropShadowEffect BlurRadius="24" Color="#0F172A" Opacity="0.22" ShadowDepth="6" Direction="270" />
             </Border.Effect>
 
-            <StackPanel VerticalAlignment="Center">
-                <!-- LOGO & TIÊU ĐỀ -->
-                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,20">
-                    <Border Width="64" Height="64" Background="#00897B" CornerRadius="32" HorizontalAlignment="Center" Margin="0,0,0,10">
-                        <materialDesign:PackIcon Kind="Billiards" Width="36" Height="36" Foreground="White" 
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <TextBlock Text="BILLIARD PRO" FontSize="22" FontWeight="ExtraBold" Foreground="#0F172A" HorizontalAlignment="Center" />
-                    <TextBlock Text="Đăng nhập để vào ca làm việc" FontSize="13" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,4,0,0" />
-                </StackPanel>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- Row 0: Custom Window Control Bar -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Row 1: Login Form Content -->
+                    <RowDefinition Height="*" />
+                    <!-- Row 2: Status Footer -->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <!-- THÔNG BÁO LỖI NẾU CÓ -->
-                <Border Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,16"
-                        Visibility="{Binding HasError, Converter={StaticResource BoolToVisConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="AlertCircleOutline" Foreground="#DC2626" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12" TextWrapping="Wrap" MaxWidth="290" VerticalAlignment="Center" />
+                <!-- ROW 0: THANH ĐIỀU KHIỂN CỬA SỔ & KÉO THẢ (DRAG MOVE) -->
+                <Grid Grid.Row="0" Background="Transparent" MouseDown="Header_MouseDown" Height="38" Margin="16,8,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Nhãn ứng dụng thu nhỏ góc trên -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="Billiards" Width="16" Height="16" Foreground="#00897B" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Billiard Pro" FontSize="12" FontWeight="Bold" Foreground="#334155" VerticalAlignment="Center" />
+                        <TextBlock Text=" • Đăng nhập" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
                     </StackPanel>
-                </Border>
 
-                <!-- TÊN ĐĂNG NHẬP -->
-                <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" 
-                         materialDesign:HintAssist.Hint="Tên đăng nhập" 
-                         IsEnabled="{Binding IsNotBusy}"
-                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
-                         FontSize="14" Margin="0,0,0,16">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Enter" Command="{Binding LoginCommand}" CommandParameter="{Binding ElementName=txtPassword}" />
-                    </TextBox.InputBindings>
-                </TextBox>
+                    <!-- Nút Thu nhỏ và Nút Đóng -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="btnMinimize" Click="BtnMinimize_Click"
+                                Style="{StaticResource MaterialDesignIconButton}"
+                                Width="30" Height="30" Foreground="#64748B" ToolTip="Thu nhỏ cửa sổ"
+                                Margin="0,0,2,0">
+                            <materialDesign:PackIcon Kind="WindowMinimize" Width="16" Height="16" />
+                        </Button>
+                        <Button x:Name="btnClose" Click="BtnClose_Click"
+                                Style="{StaticResource MaterialDesignIconButton}"
+                                Width="30" Height="30" Foreground="#64748B" ToolTip="Đóng ứng dụng"
+                                Margin="0,0,4,0">
+                            <materialDesign:PackIcon Kind="Close" Width="16" Height="16" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
 
-                <!-- MẬT KHẨU (HỖ TRỢ ẨN / HIỆN MẬT KHẨU) -->
-                <Grid Margin="0,0,0,12">
-                    <!-- PasswordBox khi đang ẩn -->
-                    <PasswordBox x:Name="txtPassword"
-                                 helpers:PasswordBoxHelper.BindPassword="True"
-                                 helpers:PasswordBoxHelper.BoundPassword="{Binding Password, Mode=TwoWay}"
-                                 materialDesign:HintAssist.Hint="Mật khẩu"
-                                 IsEnabled="{Binding IsNotBusy}"
-                                 Visibility="{Binding IsPasswordHidden, Converter={StaticResource BoolToVisConverter}}"
-                                 Style="{StaticResource MaterialDesignFloatingHintPasswordBox}"
-                                 FontSize="14">
-                        <PasswordBox.InputBindings>
-                            <KeyBinding Key="Enter" Command="{Binding LoginCommand}" CommandParameter="{Binding ElementName=txtPassword}" />
-                        </PasswordBox.InputBindings>
-                    </PasswordBox>
+                <!-- ROW 1: NỘI DUNG FORM ĐĂNG NHẬP -->
+                <StackPanel Grid.Row="1" Margin="28,2,28,0" VerticalAlignment="Top">
 
-                    <!-- TextBox khi đang hiện mật khẩu -->
-                    <TextBox Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}"
-                             materialDesign:HintAssist.Hint="Mật khẩu (đang hiển thị)"
+                    <!-- LOGO & BRAND HEADER -->
+                    <StackPanel HorizontalAlignment="Center" Margin="0,0,0,12" MouseDown="Header_MouseDown" Background="Transparent">
+                        <!-- Icon tròn Gradient Teal/Emerald -->
+                        <Border Width="56" Height="56" CornerRadius="18" HorizontalAlignment="Center" Margin="0,0,0,8">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#00897B" Offset="0" />
+                                    <GradientStop Color="#004D40" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" Color="#004D40" Opacity="0.3" ShadowDepth="3" Direction="270" />
+                            </Border.Effect>
+                            <materialDesign:PackIcon Kind="Billiards" Width="32" Height="32" Foreground="White" 
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="BILLIARD PRO" FontSize="20" FontWeight="ExtraBold" Foreground="#0F172A" />
+                            <Border Background="#E0F2F1" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="v1.0" FontSize="10" FontWeight="Bold" Foreground="#00796B" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="Đăng nhập để vào ca làm việc" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <!-- KHUNG BÁO LỖI (GIỮ ĐỘ CAO CỐ ĐỊNH ĐỂ KHÔNG NHẢY LAYOUT) -->
+                    <Grid Height="38" Margin="0,0,0,8">
+                        <Border Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="8" Padding="10,6"
+                                Visibility="{Binding HasError, Converter={StaticResource BoolToVisConverter}}">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <materialDesign:PackIcon Grid.Column="0" Kind="AlertCircleOutline" Foreground="#DC2626" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="1" Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" FontWeight="Medium" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Ô TÊN ĐĂNG NHẬP CÓ ICON ĐẦU VÀ FLOATING HINT -->
+                    <TextBox x:Name="txtUsername"
+                             Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" 
+                             materialDesign:HintAssist.Hint="Tên đăng nhập" 
+                             materialDesign:TextFieldAssist.LeadingIcon="AccountOutline"
                              IsEnabled="{Binding IsNotBusy}"
-                             Visibility="{Binding IsPasswordVisible, Converter={StaticResource BoolToVisConverter}}"
+                             KeyDown="TxtUsername_KeyDown"
+                             GotFocus="TxtInput_GotFocus"
                              Style="{StaticResource MaterialDesignFloatingHintTextBox}"
-                             FontSize="14">
+                             FontSize="14" Margin="0,0,0,12">
                         <TextBox.InputBindings>
                             <KeyBinding Key="Enter" Command="{Binding LoginCommand}" CommandParameter="{Binding ElementName=txtPassword}" />
                         </TextBox.InputBindings>
                     </TextBox>
 
-                    <!-- Nút chuyển đổi Ẩn/Hiện mật khẩu -->
-                    <Button Command="{Binding TogglePasswordVisibilityCommand}"
-                            Style="{StaticResource MaterialDesignIconButton}"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                            Width="28" Height="28" Padding="0" Margin="0,0,0,4"
-                            Foreground="#64748B" ToolTip="Ẩn / Hiện mật khẩu">
-                        <materialDesign:PackIcon Kind="{Binding IsPasswordVisible, Converter={x:Null}}" Width="18" Height="18">
-                            <materialDesign:PackIcon.Style>
-                                <Style TargetType="materialDesign:PackIcon">
-                                    <Setter Property="Kind" Value="EyeOffOutline" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsPasswordVisible}" Value="True">
-                                            <Setter Property="Kind" Value="EyeOutline" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </materialDesign:PackIcon.Style>
-                        </materialDesign:PackIcon>
-                    </Button>
-                </Grid>
+                    <!-- Ô MẬT KHẨU (ICON ĐẦU, NÚT ẨN/HIỆN MẮT BÊN PHẢI) -->
+                    <Grid Margin="0,0,0,4">
+                        <!-- PasswordBox khi mật khẩu đang ẩn -->
+                        <PasswordBox x:Name="txtPassword"
+                                     helpers:PasswordBoxHelper.BindPassword="True"
+                                     helpers:PasswordBoxHelper.BoundPassword="{Binding Password, Mode=TwoWay}"
+                                     materialDesign:HintAssist.Hint="Mật khẩu"
+                                     materialDesign:TextFieldAssist.LeadingIcon="LockOutline"
+                                     Padding="0,0,36,0"
+                                     IsEnabled="{Binding IsNotBusy}"
+                                     GotFocus="TxtInput_GotFocus"
+                                     Visibility="{Binding IsPasswordHidden, Converter={StaticResource BoolToVisConverter}}"
+                                     Style="{StaticResource MaterialDesignFloatingHintPasswordBox}"
+                                     FontSize="14">
+                            <PasswordBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding LoginCommand}" CommandParameter="{Binding ElementName=txtPassword}" />
+                            </PasswordBox.InputBindings>
+                        </PasswordBox>
 
-                <!-- GHI NHỚ ĐĂNG NHẬP -->
-                <CheckBox Content="Ghi nhớ tên đăng nhập" 
-                          IsChecked="{Binding RememberMe}"
-                          IsEnabled="{Binding IsNotBusy}"
-                          FontSize="12" Foreground="#64748B" 
-                          Margin="0,0,0,20" />
+                        <!-- TextBox khi người dùng chọn hiển thị mật khẩu -->
+                        <TextBox x:Name="txtVisiblePassword"
+                                 Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}"
+                                 materialDesign:HintAssist.Hint="Mật khẩu (đang hiển thị)"
+                                 materialDesign:TextFieldAssist.LeadingIcon="LockOutline"
+                                 Padding="0,0,36,0"
+                                 IsEnabled="{Binding IsNotBusy}"
+                                 GotFocus="TxtInput_GotFocus"
+                                 Visibility="{Binding IsPasswordVisible, Converter={StaticResource BoolToVisConverter}}"
+                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                 FontSize="14">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding LoginCommand}" CommandParameter="{Binding ElementName=txtPassword}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
 
-                <!-- NÚT ĐĂNG NHẬP (IsDefault=True để nhận phím Enter) -->
-                <Button Command="{Binding LoginCommand}" 
-                        CommandParameter="{Binding ElementName=txtPassword}"
-                        IsDefault="True"
-                        IsEnabled="{Binding IsNotBusy}"
-                        Style="{StaticResource MaterialDesignRaisedButton}" 
-                        Background="#00897B" BorderBrush="#00897B"
-                        Height="46" FontSize="15" FontWeight="Bold" Margin="0,0,0,16">
-                    <Grid>
-                        <TextBlock Text="ĐĂNG NHẬP" Visibility="{Binding IsNotBusy, Converter={StaticResource BoolToVisConverter}}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                        <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}" 
-                                     Value="0" IsIndeterminate="True" 
-                                     Width="24" Height="24" Foreground="White"
-                                     Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}" />
+                        <!-- Nút bấm chuyển đổi Xem / Ẩn mật khẩu -->
+                        <Button x:Name="btnTogglePassword"
+                                Command="{Binding TogglePasswordVisibilityCommand}"
+                                Click="BtnTogglePassword_Click"
+                                Style="{StaticResource MaterialDesignIconButton}"
+                                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                Width="28" Height="28" Padding="0" Margin="0,0,0,4"
+                                Foreground="#64748B" ToolTip="Ẩn / Hiện mật khẩu">
+                            <materialDesign:PackIcon Kind="{Binding IsPasswordVisible, Converter={x:Null}}" Width="18" Height="18">
+                                <materialDesign:PackIcon.Style>
+                                    <Style TargetType="materialDesign:PackIcon">
+                                        <Setter Property="Kind" Value="EyeOffOutline" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPasswordVisible}" Value="True">
+                                                <Setter Property="Kind" Value="EyeOutline" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:PackIcon.Style>
+                            </materialDesign:PackIcon>
+                        </Button>
                     </Grid>
-                </Button>
 
-                <!-- THÔNG TIN GỢI Ý ĐĂNG NHẬP -->
-                <Border Background="#F8FAFC" CornerRadius="8" Padding="10">
-                    <StackPanel>
-                        <TextBlock Text="💡 Tài khoản mặc định:" FontSize="11" FontWeight="Bold" Foreground="#475569" />
-                        <TextBlock Text="• Quản trị viên (Admin): admin / Admin@123" FontSize="11" Foreground="#64748B" Margin="0,2,0,0" />
-                        <TextBlock Text="• Thu ngân (Staff): staff01 / Admin@123" FontSize="11" Foreground="#64748B" />
+                    <!-- CẢNH BÁO CAPS LOCK THỜI GIAN THỰC -->
+                    <StackPanel Orientation="Horizontal" Margin="4,2,0,8"
+                                Visibility="{Binding IsCapsLockOn, Converter={StaticResource BoolToVisConverter}}">
+                        <materialDesign:PackIcon Kind="KeyboardCaps" Foreground="#D97706" Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="Phím Caps Lock đang bật" Foreground="#D97706" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
+
+                    <!-- HÀNG CĂN ĐỐI: GHI NHỚ ĐĂNG NHẬP & TRỢ GIÚP / QUÊN MẬT KHẨU -->
+                    <Grid Margin="0,4,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Ghi nhớ đăng nhập bên trái -->
+                        <CheckBox Grid.Column="0"
+                                  Content="Ghi nhớ đăng nhập" 
+                                  IsChecked="{Binding RememberMe}"
+                                  IsEnabled="{Binding IsNotBusy}"
+                                  FontSize="12" Foreground="#64748B" 
+                                  VerticalAlignment="Center" />
+
+                        <!-- Quên mật khẩu bên phải -->
+                        <Button Grid.Column="1"
+                                Command="{Binding ShowHelpCommand}"
+                                Style="{StaticResource MaterialDesignFlatButton}"
+                                Padding="4,2" Height="Auto" MinWidth="0"
+                                Foreground="#00897B" FontSize="12" FontWeight="SemiBold"
+                                Content="Quên mật khẩu?" ToolTip="Hướng dẫn khi quên tài khoản hoặc mật khẩu" />
+                    </Grid>
+
+                    <!-- NÚT ĐĂNG NHẬP CHÍNH (CTA) KÈM SPINNER KHI ĐANG XỬ LÝ -->
+                    <Button Command="{Binding LoginCommand}" 
+                            CommandParameter="{Binding ElementName=txtPassword}"
+                            IsDefault="True"
+                            IsEnabled="{Binding IsNotBusy}"
+                            Style="{StaticResource MaterialDesignRaisedButton}" 
+                            materialDesign:ButtonAssist.CornerRadius="8"
+                            Background="#00897B" BorderBrush="#00897B"
+                            Height="44" FontSize="14" FontWeight="Bold" Margin="0,0,0,14">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding IsNotBusy, Converter={StaticResource BoolToVisConverter}}" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="ĐĂNG NHẬP" VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="ArrowRight" Width="16" Height="16" VerticalAlignment="Center" Margin="6,0,0,0" />
+                            </StackPanel>
+                            <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}" 
+                                         Value="0" IsIndeterminate="True" 
+                                         Width="22" Height="22" Foreground="White"
+                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}" />
+                        </Grid>
+                    </Button>
+
+                    <!-- ĐĂNG NHẬP NHANH (DEMO CHIPS TIỆN ÍCH) -->
+                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10" Padding="12,8">
+                        <StackPanel>
+                            <TextBlock Text="⚡ TÀI KHOẢN MẪU (CLICK ĐIỀN NHANH)" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,6" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Chip Quản trị viên -->
+                                <Button Grid.Column="0" Command="{Binding QuickFillAdminCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        materialDesign:ButtonAssist.CornerRadius="6"
+                                        BorderBrush="#CBD5E1" Height="30" Padding="6,0"
+                                        ToolTip="Điền tài khoản Quản trị viên (admin / Admin@123)">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="👑" FontSize="11" Margin="0,0,4,0" />
+                                        <TextBlock Text="Admin" FontSize="11" FontWeight="SemiBold" Foreground="#334155" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Chip Thu ngân -->
+                                <Button Grid.Column="2" Command="{Binding QuickFillStaffCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        materialDesign:ButtonAssist.CornerRadius="6"
+                                        BorderBrush="#CBD5E1" Height="30" Padding="6,0"
+                                        ToolTip="Điền tài khoản Thu ngân (staff01 / Admin@123)">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="💼" FontSize="11" Margin="0,0,4,0" />
+                                        <TextBlock Text="Thu ngân" FontSize="11" FontWeight="SemiBold" Foreground="#334155" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ROW 2: STATUS FOOTER (TRẠNG THÁI MÁY CHỦ & BẢN QUYỀN) -->
+                <Border Grid.Row="2" Margin="24,10,24,14" Padding="0,10,0,0" BorderBrush="#F1F5F9" BorderThickness="0,1,0,0">
+                    <Grid>
+                        <!-- Trạng thái kết nối máy chủ -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <Ellipse Width="7" Height="7" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Máy chủ: Sẵn sàng" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Thông tin bản quyền -->
+                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   Text="© 2026 BilliardPro System" FontSize="10" Foreground="#94A3B8" />
+                    </Grid>
                 </Border>
-            </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </Window>

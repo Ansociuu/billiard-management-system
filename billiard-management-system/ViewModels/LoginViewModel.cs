@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using billiard_management_system.Core;
@@ -15,6 +16,7 @@ namespace billiard_management_system.ViewModels
         private string _password = string.Empty;
         private bool _rememberMe = true;
         private bool _isPasswordVisible = false;
+        private bool _isCapsLockOn = false;
 
         public event Action LoginSucceeded;
 
@@ -32,6 +34,9 @@ namespace billiard_management_system.ViewModels
 
             LoginCommand = new RelayCommand<object>(ExecuteLoginAsync);
             TogglePasswordVisibilityCommand = new RelayCommand(ExecuteTogglePasswordVisibility);
+            QuickFillAdminCommand = new RelayCommand(ExecuteQuickFillAdmin);
+            QuickFillStaffCommand = new RelayCommand(ExecuteQuickFillStaff);
+            ShowHelpCommand = new RelayCommand(ExecuteShowHelp);
         }
 
         public string Username
@@ -66,12 +71,45 @@ namespace billiard_management_system.ViewModels
 
         public bool IsPasswordHidden => !_isPasswordVisible;
 
+        public bool IsCapsLockOn
+        {
+            get => _isCapsLockOn;
+            set => SetProperty(ref _isCapsLockOn, value);
+        }
+
         public ICommand LoginCommand { get; }
         public ICommand TogglePasswordVisibilityCommand { get; }
+        public ICommand QuickFillAdminCommand { get; }
+        public ICommand QuickFillStaffCommand { get; }
+        public ICommand ShowHelpCommand { get; }
 
         private void ExecuteTogglePasswordVisibility()
         {
             IsPasswordVisible = !IsPasswordVisible;
+        }
+
+        private void ExecuteQuickFillAdmin()
+        {
+            Username = "admin";
+            Password = "Admin@123";
+            ClearError();
+        }
+
+        private void ExecuteQuickFillStaff()
+        {
+            Username = "staff01";
+            Password = "Admin@123";
+            ClearError();
+        }
+
+        private void ExecuteShowHelp()
+        {
+            MessageBox.Show(
+                "Để đảm bảo an toàn dữ liệu và doanh thu của quán, hệ thống không mở tính năng tự đặt lại mật khẩu trực tuyến.\n\n" +
+                "Vui lòng liên hệ Chủ quán / Quản trị viên hệ thống hoặc Hotline kỹ thuật: 0901.234.567 để được hỗ trợ cấp lại mật khẩu.",
+                "Trợ giúp Đăng nhập",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
 
         private async void ExecuteLoginAsync(object parameter)
