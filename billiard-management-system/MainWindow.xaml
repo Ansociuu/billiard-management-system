@@ -6,8 +6,9 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="Hệ Thống Quản Lý Quán Billiard Chuyên Nghiệp" 
-        Height="780" Width="1280"
-        MinHeight="650" MinWidth="1000"
+        WindowState="Maximized"
+        Height="720" Width="1200"
+        MinHeight="580" MinWidth="960"
         WindowStartupLocation="CenterScreen"
         Background="#0F172A">
 
@@ -147,16 +148,21 @@
             <!-- TOP HEADER: THÔNG TIN NGƯỜI DÙNG, THỜI LƯỢNG CA TRỰC & ĐỒNG HỒ -->
             <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="24,0">
                 <Grid VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="Xin chào, " FontSize="16" Foreground="#64748B" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding CurrentUserFullName}" FontSize="16" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding CurrentUserFullName}" FontSize="16" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <Border Margin="12,0,0,0" Padding="8,3" CornerRadius="12" Background="#E0F2FE" VerticalAlignment="Center">
                             <TextBlock Text="{Binding CurrentUserRole}" FontSize="11" FontWeight="Bold" Foreground="#0284C7" />
                         </Border>
                     </StackPanel>
 
                     <!-- Đồng hồ thời gian thực & Ca làm việc -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <!-- Thời lượng ca trực -->
                         <Border Background="#F1F5F9" CornerRadius="16" Padding="12,5" Margin="0,0,12,0" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">

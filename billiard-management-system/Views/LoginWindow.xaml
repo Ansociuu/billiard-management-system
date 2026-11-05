@@ -68,8 +68,9 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- ROW 1: NỘI DUNG FORM ĐĂNG NHẬP -->
-                <StackPanel Grid.Row="1" Margin="28,2,28,0" VerticalAlignment="Top">
+                <!-- ROW 1: NỘI DUNG FORM ĐĂNG NHẬP (TỰ ĐỘNG THÍCH ỨNG THEO ĐỘ PHÂN GIẢI) -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="28,2,28,0" VerticalAlignment="Top">
 
                     <!-- LOGO & BRAND HEADER -->
                     <StackPanel HorizontalAlignment="Center" Margin="0,0,0,12" MouseDown="Header_MouseDown" Background="Transparent">
@@ -274,7 +275,8 @@
                             </Grid>
                         </StackPanel>
                     </Border>
-                </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- ROW 2: STATUS FOOTER (TRẠNG THÁI MÁY CHỦ & BẢN QUYỀN) -->
                 <Border Grid.Row="2" Margin="24,10,24,14" Padding="0,10,0,0" BorderBrush="#F1F5F9" BorderThickness="0,1,0,0">

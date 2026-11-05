@@ -30,47 +30,41 @@
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
                         </Border.Effect>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="280" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Ô tìm kiếm -->
-                            <TextBox Grid.Column="0"
+                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- 1. Ô tìm kiếm -->
+                            <TextBox Width="240"
                                      Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
-                                     materialDesign:HintAssist.Hint="🔍 Tìm theo tên, username, SĐT, chức vụ..."
+                                     materialDesign:HintAssist.Hint="🔍 Tìm theo tên, username, SĐT..."
                                      Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                                     Padding="12,8" FontSize="13" VerticalAlignment="Center" />
+                                     Padding="12,8" FontSize="13" VerticalAlignment="Center" Margin="0,3,12,3" />
 
-                            <!-- Bộ lọc Vai trò & Trạng thái -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0">
+                            <!-- 2. Bộ lọc Vai trò & Trạng thái -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,14,3">
                                 <RadioButton Content="Tất cả" IsChecked="True"
                                              Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
                                              Command="{Binding FilterRoleCommand}" CommandParameter="All" Margin="0,0,6,0" />
-                                <RadioButton Content="Quản trị (Admin)"
+                                <RadioButton Content="Quản trị"
                                              Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
                                              Command="{Binding FilterRoleCommand}" CommandParameter="1" Margin="0,0,6,0" />
-                                <RadioButton Content="Nhân viên (Staff)"
+                                <RadioButton Content="Nhân viên"
                                              Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
-                                             Command="{Binding FilterRoleCommand}" CommandParameter="2" Margin="0,0,12,0" />
+                                             Command="{Binding FilterRoleCommand}" CommandParameter="2" Margin="0,0,10,0" />
 
-                                <Border Width="1" Height="24" Background="#E2E8F0" Margin="0,0,12,0" />
+                                <Border Width="1" Height="24" Background="#E2E8F0" Margin="0,0,10,0" />
 
                                 <Button Content="Đang hoạt động" Style="{StaticResource MaterialDesignOutlinedButton}"
                                         Command="{Binding FilterStatusCommand}" CommandParameter="Active"
-                                        Height="30" Padding="10,0" FontSize="12" Margin="0,0,6,0" />
+                                        Height="30" Padding="10,0" FontSize="12" Margin="0,0,4,0" />
                                 <Button Content="Đã khóa" Style="{StaticResource MaterialDesignOutlinedButton}"
                                         Command="{Binding FilterStatusCommand}" CommandParameter="Locked"
-                                        Height="30" Padding="10,0" FontSize="12" Margin="0,0,6,0" />
+                                        Height="30" Padding="10,0" FontSize="12" Margin="0,0,4,0" />
                                 <Button Content="Tất cả TT" Style="{StaticResource MaterialDesignFlatButton}"
                                         Command="{Binding FilterStatusCommand}" CommandParameter="All"
                                         Height="30" Padding="8,0" FontSize="12" />
                             </StackPanel>
 
-                            <!-- Thống kê & Nút thao tác -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- 3. Thống kê & Nút thao tác -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,0,3">
                                 <Border Background="#E0F2FE" CornerRadius="14" Padding="10,5" Margin="0,0,8,0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Tổng: " Foreground="#0369A1" FontSize="12" FontWeight="SemiBold" />
@@ -83,7 +77,7 @@
                                         <TextBlock Text="{Binding ActiveStaffCount}" Foreground="#15803D" FontSize="12" FontWeight="Bold" />
                                     </StackPanel>
                                 </Border>
-                                <Border Background="#FEE2E2" CornerRadius="14" Padding="10,5" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <Border Background="#FEE2E2" CornerRadius="14" Padding="10,5" Margin="0,0,10,0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Đã khóa: " Foreground="#B91C1C" FontSize="12" FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding LockedStaffCount}" Foreground="#B91C1C" FontSize="12" FontWeight="Bold" />
@@ -106,7 +100,7 @@
                                     <materialDesign:PackIcon Kind="Refresh" Width="18" Height="18" />
                                 </Button>
                             </StackPanel>
-                        </Grid>
+                        </WrapPanel>
                     </Border>
 
                     <!-- NỘI DUNG CHÍNH: BẢNG DANH SÁCH (TRÁI) + FORM HỒ SƠ (PHẢI) -->
