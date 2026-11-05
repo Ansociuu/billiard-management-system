@@ -32,22 +32,16 @@
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
                         </Border.Effect>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="260" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Tìm kiếm sản phẩm -->
-                            <TextBox Grid.Column="0"
+                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- 1. Tìm kiếm sản phẩm -->
+                            <TextBox Width="230"
                                      Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
-                                     materialDesign:HintAssist.Hint="🔍 Tìm tên sản phẩm, đơn vị, danh mục..."
+                                     materialDesign:HintAssist.Hint="🔍 Tìm tên sản phẩm, đơn vị..."
                                      Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                                     Padding="12,8" FontSize="13" VerticalAlignment="Center" />
+                                     Padding="12,8" FontSize="13" VerticalAlignment="Center" Margin="0,3,12,3" />
 
-                            <!-- Bộ lọc theo Danh mục & Trạng thái -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0">
+                            <!-- 2. Bộ lọc theo Danh mục & Trạng thái -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,14,3">
                                 <RadioButton Content="Tất cả" IsChecked="True"
                                              Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
                                              Command="{Binding FilterCategoryCommand}" CommandParameter="All" Margin="0,0,6,0" />
@@ -71,8 +65,8 @@
                                         Command="{Binding FilterStatusCommand}" CommandParameter="All" Height="30" Padding="8,0" FontSize="12" />
                             </StackPanel>
 
-                            <!-- Thống kê & Nút Tạo mới -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- 3. Thống kê & Nút Tạo mới -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,0,3">
                                 <Border Background="#DCFCE7" CornerRadius="14" Padding="10,5" Margin="0,0,8,0">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Đang bán: " Foreground="#15803D" FontSize="12" FontWeight="SemiBold" />
@@ -102,7 +96,7 @@
                                     <materialDesign:PackIcon Kind="Refresh" Width="18" Height="18" />
                                 </Button>
                             </StackPanel>
-                        </Grid>
+                        </WrapPanel>
                     </Border>
 
                     <!-- MAIN CONTENT: DANH SÁCH SẢN PHẨM (TRÁI) + FORM CRUD (PHẢI) -->

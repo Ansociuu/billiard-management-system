@@ -35,14 +35,9 @@
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.06" ShadowDepth="2" />
                         </Border.Effect>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Filter theo loại bàn & trạng thái -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Nhóm 1: Filter theo loại bàn -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,10,3">
                                 <RadioButton Content="Tất cả loại" IsChecked="True" Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
                                              Command="{Binding FilterTypeCommand}" CommandParameter="All" Margin="0,0,6,0" />
                                 <RadioButton Content="Bàn Pool" Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
@@ -50,10 +45,11 @@
                                 <RadioButton Content="Bàn Carom" Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
                                              Command="{Binding FilterTypeCommand}" CommandParameter="2" Margin="0,0,6,0" />
                                 <RadioButton Content="Bàn 3 Băng" Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
-                                             Command="{Binding FilterTypeCommand}" CommandParameter="3" Margin="0,0,12,0" />
+                                             Command="{Binding FilterTypeCommand}" CommandParameter="3" Margin="0,0,0,0" />
+                            </StackPanel>
 
-                                <Border Width="1" Height="22" Background="#E2E8F0" Margin="0,0,12,0" />
-
+                            <!-- Nhóm 2: Filter theo trạng thái bàn -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,14,3">
                                 <Button Content="Tất cả TT" Style="{StaticResource MaterialDesignFlatButton}"
                                         Command="{Binding FilterStatusCommand}" CommandParameter="All" Height="30" Padding="8,0" FontSize="12" Margin="0,0,4,0" />
                                 <Button Content="Trống" Style="{StaticResource MaterialDesignOutlinedButton}"
@@ -64,8 +60,8 @@
                                         Command="{Binding FilterStatusCommand}" CommandParameter="Maintenance" Height="30" Padding="10,0" FontSize="12" />
                             </StackPanel>
 
-                            <!-- Thống kê nhanh & Nút tải lại -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Nhóm 3: Thống kê nhanh & Nút tải lại -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,0,3">
                                 <!-- Chip Bàn Trống -->
                                 <Border Background="#E8F5E9" CornerRadius="16" Padding="10,5" Margin="0,0,8,0">
                                     <StackPanel Orientation="Horizontal">
@@ -102,7 +98,7 @@
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
-                        </Grid>
+                        </WrapPanel>
                     </Border>
 
                     <!-- MAIN AREA: LƯỚI BÀN (BÊN TRÁI) + CHI TIẾT & HÓA ĐƠN (BÊN PHẢI) -->
@@ -771,25 +767,20 @@
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="10" Color="#000000" Opacity="0.05" ShadowDepth="2" />
                         </Border.Effect>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Bộ lọc theo Loại quy tắc & Trạng thái -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Nhóm 1: Bộ lọc theo Loại quy tắc & Trạng thái -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,14,3">
                                 <RadioButton Content="Tất cả quy tắc" IsChecked="True"
                                              Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
                                              Command="{Binding FilterRuleTypeCommand}" CommandParameter="All" Margin="0,0,6,0" />
-                                <RadioButton Content="💵 Giá cơ bản (BaseRate)"
+                                <RadioButton Content="💵 Giá chuẩn"
                                              Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
                                              Command="{Binding FilterRuleTypeCommand}" CommandParameter="BaseRate" Margin="0,0,6,0" />
-                                <RadioButton Content="🎁 Khuyến mãi (Promotion)"
+                                <RadioButton Content="🎁 Khuyến mãi"
                                              Style="{StaticResource MaterialDesignChoiceChipRadioButton}"
-                                             Command="{Binding FilterRuleTypeCommand}" CommandParameter="Promotion" Margin="0,0,12,0" />
+                                             Command="{Binding FilterRuleTypeCommand}" CommandParameter="Promotion" Margin="0,0,10,0" />
 
-                                <Border Width="1" Height="22" Background="#E2E8F0" Margin="0,0,12,0" />
+                                <Border Width="1" Height="22" Background="#E2E8F0" Margin="0,0,10,0" />
 
                                 <Button Content="Đang áp dụng" Style="{StaticResource MaterialDesignOutlinedButton}"
                                         Command="{Binding FilterRuleStatusCommand}" CommandParameter="Active" Height="30" Padding="10,0" FontSize="12" Margin="0,0,4,0" />
@@ -799,8 +790,8 @@
                                         Command="{Binding FilterRuleStatusCommand}" CommandParameter="All" Height="30" Padding="8,0" FontSize="12" />
                             </StackPanel>
 
-                            <!-- Thống kê & Nút Tạo quy tắc mới -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Nhóm 2: Thống kê & Nút Tạo quy tắc mới -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,0,3">
                                 <Border Background="#DCFCE7" CornerRadius="14" Padding="10,5" Margin="0,0,8,0">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Giá chuẩn: " Foreground="#15803D" FontSize="12" FontWeight="SemiBold" />
@@ -830,7 +821,7 @@
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
-                        </Grid>
+                        </WrapPanel>
                     </Border>
 
                     <!-- NỘI DUNG CHÍNH: BẢNG QUY TẮC GIÁ (TRÁI) + FORM CẤU HÌNH (PHẢI) -->

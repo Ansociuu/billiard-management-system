@@ -21,6 +21,13 @@ namespace billiard_management_system.Views
 
         private void LoginWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // Tự động thích ứng kích thước cửa sổ nếu độ phân giải màn hình hoặc tỷ lệ DPI Display Scale thấp
+            double workHeight = SystemParameters.WorkArea.Height;
+            if (workHeight > 0 && workHeight < Height + 40)
+            {
+                Height = Math.Max(480, workHeight - 30);
+            }
+
             UpdateCapsLockState();
             ApplySmartFocus();
         }
