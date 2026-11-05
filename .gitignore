@@ -93,3 +93,8 @@ _ReSharper*/
 # Database connection credentials (keep example file in repo)
 connections.config
 **/connections.config
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class

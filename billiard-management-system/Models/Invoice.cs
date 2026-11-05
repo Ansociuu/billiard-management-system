@@ -35,6 +35,7 @@ namespace billiard_management_system.Models
                 if (string.Equals(Status, "Cancelled", StringComparison.OrdinalIgnoreCase)) return "Đã hủy";
                 return Status;
             }
+            set { }
         }
 
         public string PaymentMethodDisplay
@@ -45,7 +46,7 @@ namespace billiard_management_system.Models
                 if (string.Equals(PaymentMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase)) return "Chuyển khoản (BankTransfer)";
                 return "Chưa chọn";
             }
+            set { }
         }
     }
 }
-

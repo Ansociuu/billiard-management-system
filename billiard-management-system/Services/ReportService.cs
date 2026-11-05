@@ -155,27 +155,30 @@ namespace billiard_management_system.Services
                         }
                     }
 
-                    // 4. Hiệu suất & Doanh thu theo từng bàn (chỉ cộng doanh thu từ hóa đơn Paid)
+                    // 4. Hiệu suất & Doanh thu theo từng bàn (chỉ cộng doanh thu từ hóa đơn Paid trong kỳ)
                     const string tableSql = @"
                         SELECT
                             t.TableId,
                             t.TableNumber,
                             tt.TypeName,
-                            COUNT(i.InvoiceId) AS PaidSessions,
-                            COALESCE(SUM(GREATEST(1, TIMESTAMPDIFF(MINUTE, s.StartTime, COALESCE(s.EndTime, i.PaidAt, i.CreatedAt)))), 0) AS TotalMinutes,
-                            COALESCE(SUM(i.TableAmount), 0) AS TableRev,
-                            COALESCE(SUM(i.ServiceAmount), 0) AS ProductRev,
-                            COALESCE(SUM(i.TotalAmount), 0) AS NetRev
+                            COUNT(p.InvoiceId) AS PaidSessions,
+                            COALESCE(SUM(GREATEST(1, TIMESTAMPDIFF(MINUTE, p.StartTime, COALESCE(p.EndTime, p.PaidAt, p.CreatedAt)))), 0) AS TotalMinutes,
+                            COALESCE(SUM(p.TableAmount), 0) AS TableRev,
+                            COALESCE(SUM(p.ServiceAmount), 0) AS ProductRev,
+                            COALESCE(SUM(p.TotalAmount), 0) AS NetRev
                         FROM Tables t
                         INNER JOIN TableTypes tt ON t.TableTypeId = tt.TableTypeId
-                        LEFT JOIN Sessions s ON t.TableId = s.TableId
-                        LEFT JOIN Invoices i ON s.SessionId = i.SessionId
-                            AND i.Status = 'Paid'
-                            AND COALESCE(i.PaidAt, i.CreatedAt) >= @FromDate
-                            AND COALESCE(i.PaidAt, i.CreatedAt) < @ToDateExclusive
-                        WHERE t.IsActive = TRUE
-                        GROUP BY t.TableId, t.TableNumber, tt.TypeName
-                        HAVING COUNT(i.InvoiceId) > 0 OR t.IsActive = TRUE
+                        LEFT JOIN (
+                            SELECT i.InvoiceId, i.TableAmount, i.ServiceAmount, i.TotalAmount, i.PaidAt, i.CreatedAt,
+                                   s.TableId, s.StartTime, s.EndTime
+                            FROM Invoices i
+                            INNER JOIN Sessions s ON i.SessionId = s.SessionId
+                            WHERE i.Status = 'Paid'
+                              AND COALESCE(i.PaidAt, i.CreatedAt) >= @FromDate
+                              AND COALESCE(i.PaidAt, i.CreatedAt) < @ToDateExclusive
+                        ) p ON t.TableId = p.TableId
+                        GROUP BY t.TableId, t.TableNumber, tt.TypeName, t.IsActive
+                        HAVING COUNT(p.InvoiceId) > 0 OR t.IsActive = TRUE
                         ORDER BY NetRev DESC, t.TableNumber ASC;";
 
                     using (var cmd = new MySqlCommand(tableSql, conn))

@@ -12,7 +12,11 @@ namespace billiard_management_system.Models
         public int PaidInvoiceCount { get; set; }
         public int PendingInvoiceCount { get; set; }
         public int CancelledInvoiceCount { get; set; }
-        public int TotalInvoiceCount => PaidInvoiceCount + PendingInvoiceCount + CancelledInvoiceCount;
+        public int TotalInvoiceCount
+        {
+            get => PaidInvoiceCount + PendingInvoiceCount + CancelledInvoiceCount;
+            set { }
+        }
 
         // Thống kê Doanh thu (Chỉ tính trên các hóa đơn Status = 'Paid')
         public decimal TableRevenue { get; set; }
@@ -56,7 +60,11 @@ namespace billiard_management_system.Models
         public decimal ProductRevenue { get; set; }
         public decimal NetRevenue { get; set; }
 
-        public string TotalHoursDisplay => $"{Math.Round(TotalMinutesPlayed / 60m, 1):0.0} giờ";
+        public string TotalHoursDisplay
+        {
+            get => $"{Math.Round(TotalMinutesPlayed / 60m, 1):0.0} giờ";
+            set { }
+        }
     }
 
     public class ProductRevenueItem

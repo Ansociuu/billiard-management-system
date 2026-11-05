@@ -1,10 +1,13 @@
-import docx
+﻿import docx
 from docx.shared import Inches, Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import extra_content
 
 def create_report_docx():
     doc = docx.Document()
@@ -464,6 +467,7 @@ def create_report_docx():
     add_para('• Tính toàn vẹn và an toàn dữ liệu: Áp dụng Database Transaction đối với các giao dịch phức tạp (chuyển bàn, thanh toán hóa đơn). Mật khẩu người dùng phải được mã hóa một chiều bằng thuật toán BCrypt kèm muối ngẫu nhiên (Salt).')
     add_para('• Tính khả dụng: Giao diện trực quan, hỗ trợ hiển thị danh sách dạng lưới (Grid), các phím tắt tiện lợi cho thu ngân thao tác nhanh bằng bàn phím.')
 
+    extra_content.chapter1_extra(doc)
     doc.add_page_break()
 
     # ==========================
@@ -735,6 +739,7 @@ def create_report_docx():
     add_heading_3('2.5.3. Bảo mật chuỗi kết nối và kiểm soát kênh truyền SSL/TLS')
     add_para('Một lỗ hổng phổ biến của các đồ án sinh viên là lưu cứng chuỗi kết nối (chứa IP, User, Password) trực tiếp trong mã nguồn C# hoặc file `App.config` đưa lên GitHub. Để giải quyết triệt để vấn đề này, đề tài áp dụng cơ chế nạp cấu hình ngoại vi `configSource="connections.config"`. File `connections.config` được cấu hình trong file `.gitignore` để không bao giờ bị lộ ra ngoài kho lưu trữ mã nguồn.')
 
+    extra_content.chapter2_extra(doc)
     doc.add_page_break()
 
     # ==========================
@@ -833,6 +838,7 @@ def create_report_docx():
     add_image_safe('docs/figures/fig_3_2_performance_chart.png')
     add_fig_title('Hình 3.2: Biểu đồ kết quả kiểm thử tải và thời gian đáp ứng cơ sở dữ liệu đám mây')
 
+    extra_content.chapter3_extra(doc)
     doc.add_page_break()
 
     # ==========================
