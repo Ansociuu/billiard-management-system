@@ -175,17 +175,17 @@
                                                 </Border>
                                             </Grid>
                                             <TextBlock FontSize="12" Foreground="#475569" Margin="0,6,0,0">
-                                                <Run Text="Bàn: " /><Run Text="{Binding SelectedInvoice.TableNumber}" FontWeight="Bold" />
-                                                <Run Text=" • Phiên #" /><Run Text="{Binding SelectedInvoice.SessionId}" FontWeight="SemiBold" />
-                                                <Run Text=" • Khách: " /><Run Text="{Binding SelectedInvoice.CustomerName}" FontWeight="SemiBold" />
+                                                <Run Text="Bàn: " /><Run Text="{Binding SelectedInvoice.TableNumber, Mode=OneWay}" FontWeight="Bold" />
+                                                <Run Text=" • Phiên #" /><Run Text="{Binding SelectedInvoice.SessionId, Mode=OneWay}" FontWeight="SemiBold" />
+                                                <Run Text=" • Khách: " /><Run Text="{Binding SelectedInvoice.CustomerName, Mode=OneWay}" FontWeight="SemiBold" />
                                             </TextBlock>
                                             <TextBlock FontSize="12" Foreground="#64748B" Margin="0,3,0,0">
-                                                <Run Text="Thu ngân: " /><Run Text="{Binding SelectedInvoice.CashierName}" FontWeight="SemiBold" />
-                                                <Run Text=" • Phương thức: " /><Run Text="{Binding SelectedInvoice.PaymentMethodDisplay}" FontWeight="SemiBold" />
+                                                <Run Text="Thu ngân: " /><Run Text="{Binding SelectedInvoice.CashierName, Mode=OneWay}" FontWeight="SemiBold" />
+                                                <Run Text=" • Phương thức: " /><Run Text="{Binding SelectedInvoice.PaymentMethodDisplay, Mode=OneWay}" FontWeight="SemiBold" />
                                             </TextBlock>
                                             <TextBlock FontSize="11.5" Foreground="#64748B" Margin="0,3,0,0">
-                                                <Run Text="Lập lúc: " /><Run Text="{Binding SelectedInvoice.CreatedAt, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}'}" />
-                                                <Run Text=" • Thanh toán lúc: " /><Run Text="{Binding SelectedInvoice.PaidAt, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}', TargetNullValue='Chưa thanh toán'}" />
+                                                <Run Text="Lập lúc: " /><Run Text="{Binding SelectedInvoice.CreatedAt, Mode=OneWay, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}'}" />
+                                                <Run Text=" • Thanh toán lúc: " /><Run Text="{Binding SelectedInvoice.PaidAt, Mode=OneWay, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}', TargetNullValue='Chưa thanh toán'}" />
                                             </TextBlock>
                                         </StackPanel>
                                     </Border>
@@ -405,24 +405,24 @@
                                         <StackPanel>
                                             <Grid>
                                                 <TextBlock FontSize="16" FontWeight="ExtraBold" Foreground="#0F172A">
-                                                    <Run Text="Phiên #" /><Run Text="{Binding SelectedHistorySession.SessionId}" />
-                                                    <Run Text=" - Bàn " /><Run Text="{Binding SelectedHistorySession.TableNumber}" />
+                                                    <Run Text="Phiên #" /><Run Text="{Binding SelectedHistorySession.SessionId, Mode=OneWay}" />
+                                                    <Run Text=" - Bàn " /><Run Text="{Binding SelectedHistorySession.TableNumber, Mode=OneWay}" />
                                                 </TextBlock>
                                                 <Border HorizontalAlignment="Right" Background="#E0F2FE" CornerRadius="10" Padding="8,2">
                                                     <TextBlock Text="{Binding SelectedHistorySession.StatusDisplay}" FontSize="11" FontWeight="Bold" Foreground="#0284C7" />
                                                 </Border>
                                             </Grid>
                                             <TextBlock FontSize="12" Foreground="#475569" Margin="0,6,0,0">
-                                                <Run Text="Loại bàn: " /><Run Text="{Binding SelectedHistorySession.TypeName}" FontWeight="SemiBold" />
-                                                <Run Text=" • Mã HĐ: " /><Run Text="{Binding SelectedHistorySession.InvoiceCode}" FontWeight="Bold" />
+                                                <Run Text="Loại bàn: " /><Run Text="{Binding SelectedHistorySession.TypeName, Mode=OneWay}" FontWeight="SemiBold" />
+                                                <Run Text=" • Mã HĐ: " /><Run Text="{Binding SelectedHistorySession.InvoiceCode, Mode=OneWay}" FontWeight="Bold" />
                                             </TextBlock>
                                             <TextBlock FontSize="12" Foreground="#64748B" Margin="0,3,0,0">
-                                                <Run Text="Nhân viên mở: " /><Run Text="{Binding SelectedHistorySession.StaffName}" FontWeight="SemiBold" />
-                                                <Run Text=" • Khách: " /><Run Text="{Binding SelectedHistorySession.CustomerName}" FontWeight="SemiBold" />
+                                                <Run Text="Nhân viên mở: " /><Run Text="{Binding SelectedHistorySession.StaffName, Mode=OneWay}" FontWeight="SemiBold" />
+                                                <Run Text=" • Khách: " /><Run Text="{Binding SelectedHistorySession.CustomerName, Mode=OneWay}" FontWeight="SemiBold" />
                                             </TextBlock>
                                             <TextBlock FontSize="11.5" Foreground="#64748B" Margin="0,3,0,0">
-                                                <Run Text="Bắt đầu: " /><Run Text="{Binding SelectedHistorySession.StartTime, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}'}" />
-                                                <Run Text=" • Kết thúc: " /><Run Text="{Binding SelectedHistorySession.EndTime, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}', TargetNullValue='Đang chơi'}" />
+                                                <Run Text="Bắt đầu: " /><Run Text="{Binding SelectedHistorySession.StartTime, Mode=OneWay, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}'}" />
+                                                <Run Text=" • Kết thúc: " /><Run Text="{Binding SelectedHistorySession.EndTime, Mode=OneWay, StringFormat='{}{0:dd/MM/yyyy HH:mm:ss}', TargetNullValue='Đang chơi'}" />
                                             </TextBlock>
                                         </StackPanel>
                                     </Border>

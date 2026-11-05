@@ -11,9 +11,12 @@ namespace billiard_management_system.Models
         public decimal UnitPrice { get; set; }
         public decimal Amount { get; set; }
 
-        public string ItemTypeDisplay => string.Equals(ItemType, "Table", System.StringComparison.OrdinalIgnoreCase)
-            ? "Tiền giờ bàn"
-            : "Sản phẩm / Dịch vụ";
+        public string ItemTypeDisplay
+        {
+            get => string.Equals(ItemType, "Table", System.StringComparison.OrdinalIgnoreCase)
+                ? "Tiền giờ bàn"
+                : "Sản phẩm / Dịch vụ";
+            set { }
+        }
     }
 }
-

@@ -110,6 +110,7 @@ namespace billiard_management_system.Models
                 if (string.Equals(Status, "Cancelled", StringComparison.OrdinalIgnoreCase)) return "Đã hủy";
                 return Status;
             }
+            set { }
         }
 
         public string DurationDisplay
@@ -121,7 +122,7 @@ namespace billiard_management_system.Models
                 if (dur < TimeSpan.Zero) dur = TimeSpan.Zero;
                 return $"{(int)dur.TotalHours:D2}h {dur.Minutes:D2}p";
             }
+            set { }
         }
     }
 }
-
